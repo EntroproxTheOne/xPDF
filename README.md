@@ -1,5 +1,9 @@
 # xPDF
 
+<p align="center">
+  <img src="assets/images/app_logo.png" width="128" alt="xPDF Logo">
+</p>
+
 xPDF is an all-in-one mobile PDF suite that allows users to create, edit, convert, and secure PDFs.
 
 ## Features
