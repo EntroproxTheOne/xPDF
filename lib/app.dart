@@ -5,6 +5,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
 import 'core/router/app_router.dart';
+import 'core/settings/app_settings_controller.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'services/incoming_pdf_service.dart';
 
@@ -65,13 +67,29 @@ class _AllInOnePdfAppState extends State<AllInOnePdfApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'xPDF',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      routerConfig: appRouter,
-      themeAnimationDuration: const Duration(milliseconds: 220),
-      themeAnimationCurve: Curves.easeOutCubic,
+    final settings = AppSettingsController.instance;
+
+    return AnimatedBuilder(
+      animation: settings,
+      builder: (context, _) {
+        final platform =
+            WidgetsBinding.instance.platformDispatcher.platformBrightness;
+        final effectiveDark = settings.themeMode == ThemeMode.dark ||
+            (settings.themeMode == ThemeMode.system &&
+                platform == Brightness.dark);
+        AppColors.setDarkMode(effectiveDark);
+
+        return MaterialApp.router(
+          title: 'xPDF',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: settings.themeMode,
+          routerConfig: appRouter,
+          themeAnimationDuration: const Duration(milliseconds: 220),
+          themeAnimationCurve: Curves.easeOutCubic,
+        );
+      },
     );
   }
 }

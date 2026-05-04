@@ -158,9 +158,7 @@ class PdfEditorService {
 
   List<TextWord> extractWordsForPage(int pageIndex) {
     final doc = _document;
-    if (doc == null ||
-        pageIndex < 0 ||
-        pageIndex >= doc.pages.count) {
+    if (doc == null || pageIndex < 0 || pageIndex >= doc.pages.count) {
       return <TextWord>[];
     }
     final extractor = PdfTextExtractor(doc);
@@ -211,25 +209,42 @@ class PdfEditorService {
     return e.contains(p);
   }
 
-  PdfStandardFont fontMatchingWord(TextWord word) {
-    final size = word.fontSize > 2 ? word.fontSize : 12.0;
-    final name = word.fontName.toLowerCase();
+  PdfColor _pdfColor(Color color) {
+    final argb = color.toARGB32();
+    return PdfColor((argb >> 16) & 0xff, (argb >> 8) & 0xff, argb & 0xff);
+  }
+
+  PdfStandardFont fontMatchingWord(
+    TextWord word, {
+    double? overrideSize,
+    String? overrideFontFamily,
+    bool? forceBold,
+    bool? forceItalic,
+  }) {
+    final size = overrideSize ?? (word.fontSize > 2 ? word.fontSize : 12.0);
+    final name = (overrideFontFamily ?? word.fontName).toLowerCase();
     PdfFontFamily family = PdfFontFamily.helvetica;
     if (name.contains('courier')) {
       family = PdfFontFamily.courier;
     } else if (name.contains('times') || name.contains('roman')) {
       family = PdfFontFamily.timesRoman;
+    } else if (name.contains('symbol')) {
+      family = PdfFontFamily.symbol;
+    } else if (name.contains('zapf') || name.contains('ding')) {
+      family = PdfFontFamily.zapfDingbats;
     }
     if (word.fontStyle.isEmpty) {
       return PdfStandardFont(family, size);
     }
-    final hasItalic = word.fontStyle.contains(PdfFontStyle.italic);
-    final hasBold = word.fontStyle.contains(PdfFontStyle.bold);
+    final hasItalic =
+        forceItalic ?? word.fontStyle.contains(PdfFontStyle.italic);
+    final hasBold = forceBold ?? word.fontStyle.contains(PdfFontStyle.bold);
     if (hasItalic && hasBold) {
-      return PdfStandardFont(family, size, multiStyle: const [
-        PdfFontStyle.bold,
-        PdfFontStyle.italic,
-      ]);
+      return PdfStandardFont(
+        family,
+        size,
+        multiStyle: const [PdfFontStyle.bold, PdfFontStyle.italic],
+      );
     }
     if (hasBold) return PdfStandardFont(family, size, style: PdfFontStyle.bold);
     if (hasItalic) {
@@ -240,24 +255,44 @@ class PdfEditorService {
 
   /// Erases [word]'s raster box then draws [newText] with the extractor font.
   /// Best‑effort: reflow/longer replacement may clip visually.
-  void replaceExtractedWord(int pageIndex, TextWord word, String newText) {
+  void replaceExtractedWord(
+    int pageIndex,
+    TextWord word,
+    String newText, {
+    Color color = const Color(0xFF000000),
+    double? fontSize,
+    bool? forceBold,
+    bool? forceItalic,
+    String? fontFamily,
+  }) {
     final doc = _document;
-    if (doc == null ||
-        pageIndex < 0 ||
-        pageIndex >= doc.pages.count) {
+    if (doc == null || pageIndex < 0 || pageIndex >= doc.pages.count) {
       return;
     }
+    final value = newText.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    if (value.trim().isEmpty) return;
+    final font = fontMatchingWord(
+      word,
+      overrideSize: fontSize,
+      overrideFontFamily: fontFamily,
+      forceBold: forceBold,
+      forceItalic: forceItalic,
+    );
+    final measured = font.measureString(value);
+    final replacementBounds = Rect.fromLTWH(
+      word.bounds.left,
+      word.bounds.top,
+      math.max(word.bounds.width, measured.width + 6),
+      math.max(word.bounds.height, measured.height + 4),
+    );
     final page = doc.pages[pageIndex];
     final inflate = word.bounds.inflate(2.5);
     page.graphics.drawRectangle(brush: PdfBrushes.white, bounds: inflate);
-    final trimmed = newText.trim();
-    if (trimmed.isEmpty) return;
-    final font = fontMatchingWord(word);
     page.graphics.drawString(
-      trimmed,
+      value,
       font,
-      brush: PdfBrushes.black,
-      bounds: word.bounds,
+      brush: PdfSolidBrush(_pdfColor(color)),
+      bounds: replacementBounds,
       format: PdfStringFormat(
         alignment: PdfTextAlignment.left,
         lineAlignment: PdfVerticalAlignment.middle,
@@ -269,7 +304,7 @@ class PdfEditorService {
   void highlightWordAtPoint(int pageIndex, Offset pdfCoord, Size media) {
     final doc = _document;
     if (doc == null || pageIndex < 0 || pageIndex >= doc.pages.count) return;
-    
+
     final word = findWordAtPdfPoint(pageIndex, pdfCoord, media);
     if (word == null || word.text.trim().isEmpty) return;
 
@@ -281,24 +316,32 @@ class PdfEditorService {
     // Let's use a very light yellow to simulate a highlighter over black text.
     // Inflate slightly for better visual coverage
     final bounds = word.bounds.inflate(1.5);
-    
+
     // To properly simulate highlighter (multiply blend mode), we'd need advanced graphics state.
     // For simplicity, we draw the rectangle. Wait, if we draw a solid rectangle, it will cover the text.
     // Syncfusion allows setting transparency via PdfGraphicsState!
     page.graphics.save();
     page.graphics.setTransparency(0.4);
-    page.graphics.drawRectangle(brush: PdfSolidBrush(PdfColor(255, 235, 59)), bounds: bounds);
+    page.graphics.drawRectangle(
+      brush: PdfSolidBrush(PdfColor(255, 235, 59)),
+      bounds: bounds,
+    );
     page.graphics.restore();
   }
 
   /// Draws a freehand stroke path onto the specified page.
-  void drawPathOnPage(int pageIndex, List<Offset> points, Color color, double strokeWidth) {
+  void drawPathOnPage(
+    int pageIndex,
+    List<Offset> points,
+    Color color,
+    double strokeWidth,
+  ) {
     final doc = _document;
     if (doc == null || pageIndex < 0 || pageIndex >= doc.pages.count) return;
     if (points.length < 2) return;
 
     final page = doc.pages[pageIndex];
-    final pdfColor = PdfColor(color.r.toInt(), color.g.toInt(), color.b.toInt());
+    final pdfColor = _pdfColor(color);
     final pen = PdfPen(pdfColor, width: strokeWidth)
       ..lineCap = PdfLineCap.round
       ..lineJoin = PdfLineJoin.round;
@@ -307,7 +350,7 @@ class PdfEditorService {
     for (var i = 0; i < points.length - 1; i++) {
       path.addLine(points[i], points[i + 1]);
     }
-    
+
     page.graphics.drawPath(path, pen: pen);
   }
 
@@ -315,19 +358,33 @@ class PdfEditorService {
   void stampPageNumbers() {
     final doc = _document;
     if (doc == null) return;
-    
+
     final count = doc.pages.count;
     final font = PdfStandardFont(PdfFontFamily.helvetica, 12);
-    final format = PdfStringFormat(alignment: PdfTextAlignment.center, lineAlignment: PdfVerticalAlignment.middle);
+    final format = PdfStringFormat(
+      alignment: PdfTextAlignment.center,
+      lineAlignment: PdfVerticalAlignment.middle,
+    );
     final brush = PdfSolidBrush(PdfColor(0, 0, 0));
 
     for (var i = 0; i < count; i++) {
       final page = doc.pages[i];
       final text = 'Page ${i + 1} of $count';
-      
+
       // Calculate bounds at the bottom
-      final bounds = Rect.fromLTWH(0, page.size.height - 40, page.size.width, 20);
-      page.graphics.drawString(text, font, brush: brush, bounds: bounds, format: format);
+      final bounds = Rect.fromLTWH(
+        0,
+        page.size.height - 40,
+        page.size.width,
+        20,
+      );
+      page.graphics.drawString(
+        text,
+        font,
+        brush: brush,
+        bounds: bounds,
+        format: format,
+      );
     }
   }
 
@@ -335,26 +392,42 @@ class PdfEditorService {
   void stampWatermark(String text) {
     final doc = _document;
     if (doc == null || text.trim().isEmpty) return;
-    
+
     final count = doc.pages.count;
-    final font = PdfStandardFont(PdfFontFamily.helvetica, 60, style: PdfFontStyle.bold);
+    final font = PdfStandardFont(
+      PdfFontFamily.helvetica,
+      60,
+      style: PdfFontStyle.bold,
+    );
     final brush = PdfSolidBrush(PdfColor(150, 150, 150)); // Gray watermark
-    final format = PdfStringFormat(alignment: PdfTextAlignment.center, lineAlignment: PdfVerticalAlignment.middle);
+    final format = PdfStringFormat(
+      alignment: PdfTextAlignment.center,
+      lineAlignment: PdfVerticalAlignment.middle,
+    );
 
     for (var i = 0; i < count; i++) {
       final page = doc.pages[i];
-      
+
       page.graphics.save();
       page.graphics.setTransparency(0.3); // 30% opacity
-      
+
       // Translate to center
-      page.graphics.translateTransform(page.size.width / 2, page.size.height / 2);
+      page.graphics.translateTransform(
+        page.size.width / 2,
+        page.size.height / 2,
+      );
       // Rotate diagonally
       page.graphics.rotateTransform(-45);
-      
+
       // Draw centered at origin
-      page.graphics.drawString(text, font, brush: brush, bounds: const Rect.fromLTWH(0, 0, 0, 0), format: format);
-      
+      page.graphics.drawString(
+        text,
+        font,
+        brush: brush,
+        bounds: const Rect.fromLTWH(0, 0, 0, 0),
+        format: format,
+      );
+
       page.graphics.restore();
     }
   }
@@ -378,7 +451,10 @@ class PdfEditorService {
   }
 
   /// Saves a revision containing exactly one page cloned from [zeroBasedPageIndex].
-  Future<String> exportSinglePagePdf(int zeroBasedPageIndex, {String? preferredOutputDirectory}) async {
+  Future<String> exportSinglePagePdf(
+    int zeroBasedPageIndex, {
+    String? preferredOutputDirectory,
+  }) async {
     final doc = _document;
     if (doc == null) {
       throw StateError('No document loaded.');

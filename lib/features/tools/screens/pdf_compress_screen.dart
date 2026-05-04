@@ -101,7 +101,7 @@ class _PdfCompressScreenState extends State<PdfCompressScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.glassBorder),
             ),
-            child: const Icon(Iconsax.document_1, size: 64, color: AppColors.primary),
+            child: Icon(Iconsax.document_1, size: 64, color: AppColors.primary),
           ),
           const SizedBox(height: 24),
           Text(
@@ -132,7 +132,7 @@ class _PdfCompressScreenState extends State<PdfCompressScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(color: AppColors.primary),
+          CircularProgressIndicator(color: AppColors.primary),
           const SizedBox(height: 24),
           Text(
             'Compressing Document...',
@@ -193,14 +193,14 @@ class _PdfCompressScreenState extends State<PdfCompressScreen> {
               child: Column(
                 children: [
                   _ResultRow('Original Size', _formatBytes(res.originalBytes)),
-                  const Divider(height: 24, color: AppColors.outlineVariant),
+                  Divider(height: 24, color: AppColors.outlineVariant),
                   _ResultRow(
                     'New Size', 
                     _formatBytes(res.newBytes),
                     color: res.optimized ? AppColors.success : null,
                   ),
                   if (res.optimized) ...[
-                    const Divider(height: 24, color: AppColors.outlineVariant),
+                    Divider(height: 24, color: AppColors.outlineVariant),
                     _ResultRow(
                       'Space Saved', 
                       '${_formatBytes(savedBytes)} ($savedPercent%)',
@@ -248,7 +248,7 @@ class _PdfCompressScreenState extends State<PdfCompressScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Iconsax.warning_2, size: 48, color: AppColors.redTrim),
+                      Icon(Iconsax.warning_2, size: 48, color: AppColors.redTrim),
                       const SizedBox(height: 16),
                       Text('Compression Failed', style: AppTypography.title),
                       const SizedBox(height: 8),

@@ -38,7 +38,7 @@ class ProgressOverlay extends StatelessWidget {
               if (progress != null)
                 _GradientProgressBar(value: progress!)
               else
-                const SizedBox(
+                SizedBox(
                   width: 40,
                   height: 40,
                   child: CircularProgressIndicator(

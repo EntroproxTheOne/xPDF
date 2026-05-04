@@ -119,7 +119,7 @@ class _BackButton extends StatelessWidget {
             color: AppColors.outlineVariant.withValues(alpha: 0.9),
           ),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.arrow_back_ios_new_rounded,
           size: 16,
           color: AppColors.onSurface,

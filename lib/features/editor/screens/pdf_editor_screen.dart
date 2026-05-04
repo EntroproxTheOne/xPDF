@@ -36,6 +36,8 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
   bool _reorderMode = false;
   bool _highlightMode = false;
   bool _drawMode = false;
+  bool _textEditMode = false;
+  _InlineTextEdit? _activeTextEdit;
 
   List<Offset> _currentStroke = [];
   int? _currentStrokePage;
@@ -102,8 +104,6 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
     setState(() => _loading = false);
   }
 
-
-
   @override
   void initState() {
     super.initState();
@@ -112,12 +112,14 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
 
   @override
   void dispose() {
+    _activeTextEdit?.dispose();
     _editor.dispose();
     super.dispose();
   }
 
   Future<void> _saveCopy() async {
     try {
+      if (!_commitActiveTextEdit(showToast: false)) return;
       final outPath = await _editor.saveCopyNextToOriginal();
       await PdfLibraryRepository.instance.recordOpened(outPath);
       if (!mounted) return;
@@ -135,6 +137,54 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
       if (!mounted) return;
       _toast('Unable to save: $error', error: true);
     }
+  }
+
+  void _setActiveTextEdit(int pageIndex, TextWord word) {
+    _activeTextEdit?.dispose();
+    final edit = _InlineTextEdit(pageIndex: pageIndex, word: word);
+    setState(() {
+      _activeTextEdit = edit;
+      _selectedIndex = pageIndex;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _activeTextEdit != edit) return;
+      edit.focusNode.requestFocus();
+      edit.controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: edit.controller.text.length,
+      );
+    });
+  }
+
+  bool _commitActiveTextEdit({bool showToast = true}) {
+    final edit = _activeTextEdit;
+    if (edit == null) return true;
+    final value = edit.controller.text;
+    if (value.trim().isEmpty) {
+      _toast('Text cannot be blank.', error: true);
+      return false;
+    }
+    _editor.replaceExtractedWord(
+      edit.pageIndex,
+      edit.word,
+      value,
+      color: edit.color,
+      fontSize: edit.fontSize,
+      forceBold: edit.bold,
+      forceItalic: edit.italic,
+      fontFamily: edit.fontFamily,
+    );
+    edit.dispose();
+    _activeTextEdit = null;
+    _reloadPreview();
+    _selectedIndex = edit.pageIndex;
+    if (showToast) _toast('Text applied. Tap Save changes to export.');
+    return true;
+  }
+
+  void _cancelActiveTextEdit() {
+    _activeTextEdit?.dispose();
+    setState(() => _activeTextEdit = null);
   }
 
   Future<void> _extractPage() async {
@@ -173,10 +223,7 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
       return;
     }
 
-    final pdfOffset = Offset(
-      (local.dx - ox) / s,
-      (local.dy - oy) / s,
-    );
+    final pdfOffset = Offset((local.dx - ox) / s, (local.dy - oy) / s);
 
     final hit = _editor.findWordAtPdfPoint(pageIndexZero, pdfOffset, media);
     if (hit == null || hit.text.trim().isEmpty) {
@@ -185,27 +232,40 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
     }
 
     XpHaptics.surfaceTap();
-    _openWordEditor(pageIndexZero, hit);
+    _textEditMode = true;
+    _setActiveTextEdit(pageIndexZero, hit);
   }
 
-  void _handleHighlightTap(BuildContext tapCtx, Offset globalPos, int pageIndexZero) {
+  void _handleHighlightTap(
+    BuildContext tapCtx,
+    Offset globalPos,
+    int pageIndexZero,
+  ) {
     final rb = tapCtx.findRenderObject() as RenderBox?;
     if (rb == null) return;
     final local = rb.globalToLocal(globalPos);
-    
+
     final media = _editor.pageMediaSize(pageIndexZero);
     if (media.width <= 0 || media.height <= 0) return;
 
-    final s = math.min(rb.size.width / media.width, rb.size.height / media.height);
+    final s = math.min(
+      rb.size.width / media.width,
+      rb.size.height / media.height,
+    );
     final scaledW = media.width * s;
     final scaledH = media.height * s;
     final ox = (rb.size.width - scaledW) / 2;
     final oy = (rb.size.height - scaledH) / 2;
 
-    if (local.dx < ox || local.dy < oy || local.dx > ox + scaledW || local.dy > oy + scaledH) return;
+    if (local.dx < ox ||
+        local.dy < oy ||
+        local.dx > ox + scaledW ||
+        local.dy > oy + scaledH) {
+      return;
+    }
 
     final pdfOffset = Offset((local.dx - ox) / s, (local.dy - oy) / s);
-    
+
     _editor.highlightWordAtPoint(pageIndexZero, pdfOffset, media);
     XpHaptics.surfaceTap();
     setState(() {
@@ -222,14 +282,17 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
       });
       return;
     }
-    
+
     final rb = tapCtx.findRenderObject() as RenderBox?;
     if (rb == null) return;
-    
+
     final media = _editor.pageMediaSize(pageIndexZero);
     if (media.width <= 0 || media.height <= 0) return;
 
-    final s = math.min(rb.size.width / media.width, rb.size.height / media.height);
+    final s = math.min(
+      rb.size.width / media.width,
+      rb.size.height / media.height,
+    );
     final scaledW = media.width * s;
     final scaledH = media.height * s;
     final ox = (rb.size.width - scaledW) / 2;
@@ -240,7 +303,7 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
     }).toList();
 
     _editor.drawPathOnPage(pageIndexZero, pdfPoints, Colors.red, 4.0);
-    
+
     XpHaptics.surfaceTap();
     setState(() {
       _currentStroke.clear();
@@ -283,7 +346,10 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                   decoration: const InputDecoration(
                     hintText: 'e.g. CONFIDENTIAL',
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                   ),
                 ),
               ),
@@ -319,89 +385,6 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
       _toast('Watermark applied');
       XpHaptics.lightCommit();
       _reloadPreview();
-    }
-  }
-
-  Future<void> _openWordEditor(int pageIndex, TextWord word) async {
-    final ctrl = TextEditingController(text: word.text);
-    final fz = word.fontSize > 2 ? word.fontSize.toStringAsFixed(1) : '—';
-
-    try {
-      await GlassBottomSheet.show<void>(
-        context: context,
-        maxHeightFraction: 0.55,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            14,
-            0,
-            14,
-            MediaQuery.paddingOf(context).bottom +
-                MediaQuery.viewInsetsOf(context).bottom +
-                18,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Edit text', style: AppTypography.label),
-              const SizedBox(height: 6),
-              Text(
-                'Uses ${word.fontName.isEmpty ? 'standard' : word.fontName} '
-                '~$fz pt (best match). Replacements do not auto-reflow paragraphs.',
-                style: AppTypography.caption.copyWith(
-                  color: AppColors.textMuted,
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                autofocus: true,
-                controller: ctrl,
-                maxLines: null,
-                style: AppTypography.body,
-                decoration: const InputDecoration(hintText: 'New wording'),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.onPrimary,
-                      ),
-                      onPressed: () {
-                        XpHaptics.primaryCta();
-                        _editor.replaceExtractedWord(
-                          pageIndex,
-                          word,
-                          ctrl.text,
-                        );
-                        Navigator.pop(context);
-                        if (!mounted) return;
-                        setState(() {
-                          _reloadPreview();
-                          _selectedIndex = pageIndex;
-                        });
-                        _toast('Text updated.');
-                      },
-                      child: const Text('Apply'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    } finally {
-      ctrl.dispose();
     }
   }
 
@@ -604,11 +587,13 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
         title: 'PDF Editor',
         subtitle: _reorderMode
             ? '$pageCount pages · drag ☰ to reorder · long-press to exit'
+            : _textEditMode
+            ? '$pageCount pages - tap text to edit in place'
             : _drawMode
-                ? '$pageCount pages · drag on page to draw red stroke'
-                : _highlightMode
-                    ? '$pageCount pages · tap text to highlight'
-                    : '$pageCount pages · double-tap text to edit · long-press page to reorder',
+            ? '$pageCount pages · drag on page to draw red stroke'
+            : _highlightMode
+            ? '$pageCount pages · tap text to highlight'
+            : '$pageCount pages · tap Edit Text, then tap text on the page',
         showBackButton: true,
         actions: [
           Padding(
@@ -645,6 +630,19 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
           ),
         ],
       ),
+      floatingActionButton: (_reorderMode || _textEditMode)
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                XpHaptics.primaryCta();
+                _saveCopy();
+              },
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
+              icon: const Icon(Iconsax.document_upload),
+              label: const Text('Save changes'),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Column(
         children: [
           ClipRect(
@@ -667,6 +665,24 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                     physics: const BouncingScrollPhysics(),
                     child: Row(
                       children: [
+                        _toolbarIcon(
+                          icon: Iconsax.text,
+                          label: 'Edit Text',
+                          color: _textEditMode ? AppColors.primary : null,
+                          onTap: () {
+                            setState(() {
+                              _textEditMode = !_textEditMode;
+                              if (_textEditMode) {
+                                _drawMode = false;
+                                _highlightMode = false;
+                                _reorderMode = false;
+                              } else {
+                                _activeTextEdit?.dispose();
+                                _activeTextEdit = null;
+                              }
+                            });
+                          },
+                        ),
                         _toolbarIcon(
                           icon: Iconsax.add_circle,
                           label: 'Blank',
@@ -720,9 +736,7 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                           onTap: _selectedIndex == null
                               ? null
                               : () {
-                                  _editor.rotatePageClockwise(
-                                    _selectedIndex!,
-                                  );
+                                  _editor.rotatePageClockwise(_selectedIndex!);
                                   setState(_reloadPreview);
                                 },
                         ),
@@ -741,6 +755,9 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                               if (_drawMode) {
                                 _highlightMode = false;
                                 _reorderMode = false;
+                                _textEditMode = false;
+                                _activeTextEdit?.dispose();
+                                _activeTextEdit = null;
                               }
                             });
                           },
@@ -755,6 +772,9 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                               if (_highlightMode) {
                                 _drawMode = false;
                                 _reorderMode = false;
+                                _textEditMode = false;
+                                _activeTextEdit?.dispose();
+                                _activeTextEdit = null;
                               }
                             });
                           },
@@ -800,10 +820,10 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                     }
                     return LayoutBuilder(
                       builder: (context, constraints) {
-                        final maxThumbH = constraints.maxHeight > 620
-                            ? 420.0
-                            : 320.0;
-                        final minThumbH = 200.0;
+                        final maxThumbH = _textEditMode
+                            ? constraints.maxHeight - 24
+                            : (constraints.maxHeight > 620 ? 420.0 : 320.0);
+                        final minThumbH = _textEditMode ? 360.0 : 200.0;
                         final tileH = tileHeightForViewport(
                           maxWidth: constraints.maxWidth - 72,
                           minH: minThumbH,
@@ -811,12 +831,7 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                         );
 
                         return ReorderableListView.builder(
-                          padding: const EdgeInsets.fromLTRB(
-                            12,
-                            0,
-                            12,
-                            100,
-                          ),
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
                           physics: const BouncingScrollPhysics(),
                           buildDefaultDragHandles: false,
                           itemCount: pageCount,
@@ -824,8 +839,9 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                             return AnimatedBuilder(
                               animation: animation,
                               builder: (context, _) {
-                                final t =
-                                    Curves.easeOut.transform(animation.value);
+                                final t = Curves.easeOut.transform(
+                                  animation.value,
+                                );
                                 return Transform.scale(
                                   scale: lerpDouble(1, 1.02, t)!,
                                   child: Material(
@@ -851,18 +867,19 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                           },
                           itemBuilder: (context, index) {
                             final sel = index == _selectedIndex;
-                            final hThumb =
-                                (tileH - 52).clamp(170.0, 340.0).toDouble();
+                            final hThumb = _textEditMode
+                                ? (tileH - 52)
+                                      .clamp(320.0, constraints.maxHeight - 84)
+                                      .toDouble()
+                                : (tileH - 52).clamp(170.0, 340.0).toDouble();
 
                             return Padding(
                               key: ValueKey<String>(
                                 '${_previewRev}_slot_$index',
                               ),
-                              padding:
-                                  const EdgeInsets.only(bottom: 14),
+                              padding: const EdgeInsets.only(bottom: 14),
                               child: Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   if (_reorderMode)
                                     ReorderableDragStartListener(
@@ -871,36 +888,31 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                                         message:
                                             'Hold and drag up/down to reorder',
                                         child: Material(
-                                          color: AppColors
-                                              .surfaceContainerLow,
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          child: const SizedBox(
+                                          color: AppColors.surfaceContainerLow,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          child: SizedBox(
                                             width: 44,
                                             height: 56,
                                             child: Icon(
                                               Icons.drag_handle_rounded,
-                                              color:
-                                                  AppColors.textMuted,
+                                              color: AppColors.textMuted,
                                               size: 28,
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  if (_reorderMode)
-                                    const SizedBox(width: 8),
+                                  if (_reorderMode) const SizedBox(width: 8),
                                   Expanded(
-                                    child:
-                                        AnimatedContainer(
+                                    child: AnimatedContainer(
                                       duration: const Duration(
                                         milliseconds: 180,
                                       ),
                                       decoration: BoxDecoration(
-                                        color:
-                                            AppColors.backgroundSecondary,
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        color: AppColors.backgroundSecondary,
+                                        borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
                                           color: sel
                                               ? AppColors.primary
@@ -916,40 +928,37 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                                             CrossAxisAlignment.stretch,
                                         children: [
                                           Padding(
-                                            padding:
-                                                const EdgeInsets.fromLTRB(
-                                                  14,
-                                                  10,
-                                                  14,
-                                                  6,
-                                                ),
+                                            padding: const EdgeInsets.fromLTRB(
+                                              14,
+                                              10,
+                                              14,
+                                              6,
+                                            ),
                                             child: Row(
                                               children: [
                                                 Text(
                                                   'Page ${index + 1}',
-                                                  style: AppTypography
-                                                      .label,
+                                                  style: AppTypography.label,
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Expanded(
                                                   child: Text(
                                                     sel
                                                         ? (_reorderMode
-                                                            ? 'Selected · drag ☰ to reorder'
-                                                            : _drawMode
-                                                                ? 'Selected · drag to draw red stroke'
-                                                                : _highlightMode
-                                                                    ? 'Selected · tap text to highlight'
-                                                                    : 'Selected · double-tap text to edit')
+                                                              ? 'Selected - drag to reorder'
+                                                              : _drawMode
+                                                              ? 'Selected - drag to draw'
+                                                              : _highlightMode
+                                                              ? 'Selected - tap text to highlight'
+                                                              : 'Selected - tap text to edit')
                                                         : (_reorderMode
-                                                            ? 'Tap to select · drag ☰ to reorder'
-                                                            : 'Long-press to reorder · double-tap text to edit'),
-                                                    style: AppTypography
-                                                        .caption
+                                                              ? 'Tap to select - drag to reorder'
+                                                              : 'Tap Edit Text to edit - long-press to reorder'),
+                                                    style: AppTypography.caption
                                                         .copyWith(
-                                                      color: AppColors
-                                                          .textMuted,
-                                                    ),
+                                                          color: AppColors
+                                                              .textMuted,
+                                                        ),
                                                   ),
                                                 ),
                                               ],
@@ -957,179 +966,258 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
                                           ),
                                           Divider(
                                             height: 1,
-                                            color: AppColors
-                                                .outlineVariant
-                                                .withValues(
-                                                  alpha: 0.85,
-                                                ),
+                                            color: AppColors.outlineVariant
+                                                .withValues(alpha: 0.85),
                                           ),
                                           Padding(
-                                            padding:
-                                                const EdgeInsets.all(14),
+                                            padding: EdgeInsets.all(
+                                              _textEditMode ? 8 : 14,
+                                            ),
                                             child: SizedBox(
                                               height: hThumb,
-                                              width:
-                                                  double.infinity,
+                                              width: double.infinity,
                                               child: Builder(
                                                 builder: (tapCtx) {
                                                   return GestureDetector(
                                                     behavior:
-                                                        HitTestBehavior
-                                                            .opaque,
+                                                        HitTestBehavior.opaque,
                                                     onTap: () {
-                                                      setState(() =>
-                                                          _selectedIndex =
-                                                              index);
-                                                      XpHaptics
-                                                          .surfaceTap();
+                                                      setState(
+                                                        () => _selectedIndex =
+                                                            index,
+                                                      );
+                                                      XpHaptics.surfaceTap();
                                                     },
-                                                    onTapUp: (_highlightMode && !_reorderMode)
+                                                    onTapUp:
+                                                        ((_highlightMode ||
+                                                                _textEditMode) &&
+                                                            !_reorderMode)
                                                         ? (details) {
-                                                            _handleHighlightTap(tapCtx, details.globalPosition, index);
+                                                            if (_highlightMode) {
+                                                              _handleHighlightTap(
+                                                                tapCtx,
+                                                                details
+                                                                    .globalPosition,
+                                                                index,
+                                                              );
+                                                            } else {
+                                                              final rb =
+                                                                  tapCtx.findRenderObject()
+                                                                      as RenderBox?;
+                                                              if (rb == null) {
+                                                                return;
+                                                              }
+                                                              final local = rb
+                                                                  .globalToLocal(
+                                                                    details
+                                                                        .globalPosition,
+                                                                  );
+                                                              _handlePreviewTap(
+                                                                pageIndexZero:
+                                                                    index,
+                                                                viewportSize:
+                                                                    rb.size,
+                                                                local: local,
+                                                              );
+                                                            }
                                                           }
                                                         : null,
-                                                    onPanStart: (_drawMode && !_reorderMode)
+                                                    onPanStart:
+                                                        (_drawMode &&
+                                                            !_reorderMode)
                                                         ? (details) {
                                                             setState(() {
-                                                              _selectedIndex = index;
-                                                              _currentStrokePage = index;
-                                                              final rb = tapCtx.findRenderObject() as RenderBox?;
+                                                              _selectedIndex =
+                                                                  index;
+                                                              _currentStrokePage =
+                                                                  index;
+                                                              final rb =
+                                                                  tapCtx.findRenderObject()
+                                                                      as RenderBox?;
                                                               if (rb != null) {
-                                                                _currentStroke = [rb.globalToLocal(details.globalPosition)];
+                                                                _currentStroke = [
+                                                                  rb.globalToLocal(
+                                                                    details
+                                                                        .globalPosition,
+                                                                  ),
+                                                                ];
                                                               }
                                                             });
                                                           }
                                                         : null,
-                                                    onPanUpdate: (_drawMode && !_reorderMode && _currentStrokePage == index)
+                                                    onPanUpdate:
+                                                        (_drawMode &&
+                                                            !_reorderMode &&
+                                                            _currentStrokePage ==
+                                                                index)
                                                         ? (details) {
                                                             setState(() {
-                                                              final rb = tapCtx.findRenderObject() as RenderBox?;
+                                                              final rb =
+                                                                  tapCtx.findRenderObject()
+                                                                      as RenderBox?;
                                                               if (rb != null) {
-                                                                _currentStroke.add(rb.globalToLocal(details.globalPosition));
+                                                                _currentStroke.add(
+                                                                  rb.globalToLocal(
+                                                                    details
+                                                                        .globalPosition,
+                                                                  ),
+                                                                );
                                                               }
                                                             });
                                                           }
                                                         : null,
-                                                    onPanEnd: (_drawMode && !_reorderMode && _currentStrokePage == index)
+                                                    onPanEnd:
+                                                        (_drawMode &&
+                                                            !_reorderMode &&
+                                                            _currentStrokePage ==
+                                                                index)
                                                         ? (details) {
-                                                            _commitStroke(tapCtx, index);
+                                                            _commitStroke(
+                                                              tapCtx,
+                                                              index,
+                                                            );
                                                           }
                                                         : null,
                                                     onLongPress: () {
-                                                      XpHaptics
-                                                          .primaryCta();
+                                                      XpHaptics.primaryCta();
                                                       setState(() {
                                                         _reorderMode =
                                                             !_reorderMode;
                                                         if (_reorderMode) {
                                                           _drawMode = false;
-                                                          _highlightMode = false;
+                                                          _highlightMode =
+                                                              false;
+                                                          _textEditMode = false;
+                                                          _activeTextEdit
+                                                              ?.dispose();
+                                                          _activeTextEdit =
+                                                              null;
                                                         }
-                                                        _selectedIndex =
-                                                            index;
+                                                        _selectedIndex = index;
                                                       });
                                                     },
                                                     onDoubleTapDown:
-                                                        (_reorderMode || _highlightMode || _drawMode)
-                                                            ? null
-                                                            : (details) {
-                                                                final rb =
-                                                                    tapCtx
-                                                                            .findRenderObject()
-                                                                        as RenderBox?;
-                                                                if (rb ==
-                                                                    null) {
-                                                                  return;
-                                                                }
-                                                                setState(() =>
-                                                                    _selectedIndex =
-                                                                        index);
-                                                                XpHaptics
-                                                                    .surfaceTap();
-                                                                final local =
-                                                                    rb.globalToLocal(
+                                                        (_reorderMode ||
+                                                            _highlightMode ||
+                                                            _drawMode ||
+                                                            _textEditMode)
+                                                        ? null
+                                                        : (details) {
+                                                            final rb =
+                                                                tapCtx.findRenderObject()
+                                                                    as RenderBox?;
+                                                            if (rb == null) {
+                                                              return;
+                                                            }
+                                                            setState(
+                                                              () =>
+                                                                  _selectedIndex =
+                                                                      index,
+                                                            );
+                                                            XpHaptics.surfaceTap();
+                                                            final local = rb
+                                                                .globalToLocal(
                                                                   details
                                                                       .globalPosition,
                                                                 );
-                                                                _handlePreviewTap(
-                                                                  pageIndexZero:
-                                                                      index,
-                                                                  viewportSize:
-                                                                      rb.size,
-                                                                  local:
-                                                                      local,
-                                                                );
-                                                              },
+                                                            _handlePreviewTap(
+                                                              pageIndexZero:
+                                                                  index,
+                                                              viewportSize:
+                                                                  rb.size,
+                                                              local: local,
+                                                            );
+                                                          },
                                                     child: Stack(
                                                       fit: StackFit.expand,
                                                       children: [
                                                         IgnorePointer(
-                                                          child:
-                                                              PdfPageView(
-                                                        document:
-                                                            pdf,
-                                                        pageNumber:
-                                                            index +
-                                                                1,
-                                                        maximumDpi:
-                                                            138,
-                                                        backgroundColor:
-                                                            Colors.white,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color:
-                                                              Colors.white,
-                                                          boxShadow: const [
-                                                            BoxShadow(
-                                                              blurRadius: 6,
-                                                              offset:
-                                                                  Offset(
-                                                                      2,
-                                                                      4),
+                                                          child: PdfPageView(
+                                                            document: pdf,
+                                                            pageNumber:
+                                                                index + 1,
+                                                            maximumDpi:
+                                                                _textEditMode
+                                                                ? 180
+                                                                : 138,
+                                                            backgroundColor:
+                                                                Colors.white,
+                                                            decoration: BoxDecoration(
                                                               color:
-                                                                  Colors.black26,
+                                                                  Colors.white,
+                                                              boxShadow: const [
+                                                                BoxShadow(
+                                                                  blurRadius: 6,
+                                                                  offset:
+                                                                      Offset(
+                                                                        2,
+                                                                        4,
+                                                                      ),
+                                                                  color: Colors
+                                                                      .black26,
+                                                                ),
+                                                              ],
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    8,
+                                                                  ),
                                                             ),
-                                                          ],
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      8),
+                                                            pageSizeCallback: (biggest, page) {
+                                                              final dpi =
+                                                                  _textEditMode
+                                                                  ? 180.0
+                                                                  : 138.0;
+                                                              final s = math.min(
+                                                                dpi / 72,
+                                                                math.min(
+                                                                  biggest.width /
+                                                                      page.width,
+                                                                  biggest.height /
+                                                                      page.height,
+                                                                ),
+                                                              );
+                                                              final w =
+                                                                  page.width *
+                                                                  s;
+                                                              final h =
+                                                                  page.height *
+                                                                  s;
+                                                              return Size(w, h);
+                                                            },
+                                                          ),
                                                         ),
-                                                        pageSizeCallback:
-                                                            (
-                                                              biggest,
-                                                              page,
-                                                            ) {
-                                                          final s =
-                                                              math.min(
-                                                            138 / 72,
-                                                            math.min(
-                                                              biggest.width /
-                                                                  page.width,
-                                                              biggest.height /
-                                                                  page.height,
-                                                            ),
-                                                          );
-                                                          final w =
-                                                              page.width *
-                                                                  s;
-                                                          final h =
-                                                              page.height *
-                                                                  s;
-                                                          return Size(
-                                                              w,
-                                                              h);
-                                                        },
-                                                      ),
+                                                        if (_activeTextEdit !=
+                                                                null &&
+                                                            _activeTextEdit!
+                                                                    .pageIndex ==
+                                                                index)
+                                                          _InlineTextEditOverlay(
+                                                            edit:
+                                                                _activeTextEdit!,
+                                                            pageSize: _editor
+                                                                .pageMediaSize(
+                                                                  index,
+                                                                ),
+                                                            onChanged: () =>
+                                                                setState(() {}),
+                                                          ),
+                                                        if (_drawMode &&
+                                                            _currentStrokePage ==
+                                                                index &&
+                                                            _currentStroke
+                                                                .isNotEmpty)
+                                                          CustomPaint(
+                                                            painter:
+                                                                _StrokePainter(
+                                                                  _currentStroke,
+                                                                  Colors.red,
+                                                                  4.0,
+                                                                ),
+                                                          ),
+                                                      ],
                                                     ),
-                                                    if (_drawMode && _currentStrokePage == index && _currentStroke.isNotEmpty)
-                                                      CustomPaint(
-                                                        painter: _StrokePainter(_currentStroke, Colors.red, 4.0),
-                                                      ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
+                                                  );
+                                                },
                                               ),
                                             ),
                                           ),
@@ -1149,6 +1237,17 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
               ),
             ),
           ),
+          if (_activeTextEdit != null)
+            _MobileTextStyleBar(
+              edit: _activeTextEdit!,
+              onApply: () {
+                setState(() {
+                  _commitActiveTextEdit();
+                });
+              },
+              onCancel: _cancelActiveTextEdit,
+              onChanged: () => setState(() {}),
+            ),
         ],
       ),
     );
@@ -1201,31 +1300,378 @@ class _PdfEditorScreenState extends State<PdfEditorScreen> {
   }
 
   Future<void> _showDisclaimer() => GlassBottomSheet.show<void>(
-        context: context,
-        maxHeightFraction: 0.55,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+    context: context,
+    maxHeightFraction: 0.55,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Editing limits', style: AppTypography.label),
+          const SizedBox(height: 12),
+          Text(
+            '• Structural edits stay reliable.\n'
+            '• Double-tap a word on its page thumbnail to edit it — we match size & Bold/Italic on standard fonts.\n'
+            '• Custom/embedded fonts may fall back visually; edits don\'t reflow whole paragraphs.\n'
+            '• Long-press any page to toggle reorder mode. In reorder mode, drag ☰ handles to move pages.\n'
+            '• Long-press again (or tap outside) to return to normal viewing mode.',
+            style: AppTypography.bodySmall.copyWith(
+              height: 1.45,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _InlineTextEdit {
+  _InlineTextEdit({required this.pageIndex, required this.word})
+    : controller = TextEditingController(text: word.text),
+      focusNode = FocusNode(debugLabel: 'pdf-inline-text-edit'),
+      fontSize = word.fontSize > 2 ? word.fontSize : 12.0,
+      fontFamily = _inferFontFamily(word.fontName),
+      bold = word.fontStyle.contains(PdfFontStyle.bold),
+      italic = word.fontStyle.contains(PdfFontStyle.italic);
+
+  final int pageIndex;
+  final TextWord word;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  double fontSize;
+  String fontFamily;
+  bool bold;
+  bool italic;
+  bool underline = false;
+  Color color = Colors.black;
+
+  void dispose() {
+    focusNode.dispose();
+    controller.dispose();
+  }
+
+  static String _inferFontFamily(String source) {
+    final name = source.toLowerCase();
+    if (name.contains('courier')) return 'Courier';
+    if (name.contains('times') || name.contains('roman')) return 'Times';
+    if (name.contains('symbol')) return 'Symbol';
+    if (name.contains('zapf') || name.contains('ding')) return 'Zapf';
+    return 'Helvetica';
+  }
+}
+
+class _InlineTextEditOverlay extends StatelessWidget {
+  const _InlineTextEditOverlay({
+    required this.edit,
+    required this.pageSize,
+    required this.onChanged,
+  });
+
+  final _InlineTextEdit edit;
+  final Size pageSize;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final media = pageSize;
+        if (media.width <= 0 || media.height <= 0) {
+          return const SizedBox.shrink();
+        }
+        final scale = math.min(
+          constraints.maxWidth / media.width,
+          constraints.maxHeight / media.height,
+        );
+        final scaledW = media.width * scale;
+        final scaledH = media.height * scale;
+        final ox = (constraints.maxWidth - scaledW) / 2;
+        final oy = (constraints.maxHeight - scaledH) / 2;
+        final word = edit.word;
+        final fontFamily = switch (edit.fontFamily) {
+          'Times' => 'Times New Roman',
+          'Courier' => 'Courier New',
+          'Symbol' => 'Symbol',
+          _ => 'Helvetica',
+        };
+        final rect = Rect.fromLTWH(
+          ox + word.bounds.left * scale,
+          oy + word.bounds.top * scale,
+          math.max(
+            word.bounds.width * scale,
+            math.min(
+              scaledW - (word.bounds.left * scale) - 10,
+              edit.controller.text.length * edit.fontSize * scale * 0.72 + 28,
+            ),
+          ),
+          math.max(word.bounds.height * scale, edit.fontSize * scale * 1.85),
+        ).inflate(2);
+
+        return Stack(
+          children: [
+            Positioned.fromRect(
+              rect: rect,
+              child: Material(
+                color: Colors.white,
+                clipBehavior: Clip.hardEdge,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.primary, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.18),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 3,
+                      vertical: 1,
+                    ),
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: edit.controller,
+                      builder: (context, value, _) {
+                        return Text(
+                          value.text,
+                          maxLines: 2,
+                          overflow: TextOverflow.visible,
+                          style: TextStyle(
+                            color: edit.color,
+                            fontFamily: fontFamily,
+                            fontSize: math.max(10, edit.fontSize * scale),
+                            height: 1.05,
+                            fontWeight: edit.bold
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                            fontStyle: edit.italic
+                                ? FontStyle.italic
+                                : FontStyle.normal,
+                            decoration: edit.underline
+                                ? TextDecoration.underline
+                                : TextDecoration.none,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MobileTextStyleBar extends StatelessWidget {
+  const _MobileTextStyleBar({
+    required this.edit,
+    required this.onApply,
+    required this.onCancel,
+    required this.onChanged,
+  });
+
+  final _InlineTextEdit edit;
+  final VoidCallback onApply;
+  final VoidCallback onCancel;
+  final VoidCallback onChanged;
+
+  static const List<Color> _colors = [
+    Colors.black,
+    Color(0xFF004BCA),
+    Color(0xFFBA1A1A),
+    Color(0xFF00796B),
+  ];
+  static const List<String> _fonts = [
+    'Helvetica',
+    'Times',
+    'Courier',
+    'Symbol',
+    'Zapf',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    Widget toggle(String label, bool selected, VoidCallback onTap) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          width: 38,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary : AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.outlineVariant),
+          ),
+          child: Text(
+            label,
+            style: AppTypography.label.copyWith(
+              color: selected ? AppColors.onPrimary : AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+              decoration: label == 'U' ? TextDecoration.underline : null,
+              fontStyle: label == 'I' ? FontStyle.italic : FontStyle.normal,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(
+            14,
+            12,
+            14,
+            12 + MediaQuery.paddingOf(context).bottom,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.glassChromeFill,
+            border: Border(top: BorderSide(color: AppColors.glassBorder)),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Editing limits', style: AppTypography.label),
-              const SizedBox(height: 12),
-              Text(
-                '• Structural edits stay reliable.\n'
-                '• Double-tap a word on its page thumbnail to edit it — we match size & Bold/Italic on standard fonts.\n'
-                '• Custom/embedded fonts may fall back visually; edits don\'t reflow whole paragraphs.\n'
-                '• Long-press any page to toggle reorder mode. In reorder mode, drag ☰ handles to move pages.\n'
-                '• Long-press again (or tap outside) to return to normal viewing mode.',
-                style: AppTypography.bodySmall.copyWith(
-                  height: 1.45,
-                  color: AppColors.textSecondary,
+              Row(
+                children: [
+                  Text('Text styles', style: AppTypography.label),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Cancel text edit',
+                    onPressed: onCancel,
+                    icon: Icon(Icons.close, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: edit.fontFamily,
+                items: [
+                  for (final font in _fonts)
+                    DropdownMenuItem(value: font, child: Text(font)),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  edit.fontFamily = value;
+                  onChanged();
+                },
+                decoration: InputDecoration(
+                  labelText: 'Font',
+                  labelStyle: AppTypography.caption,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: edit.controller,
+                focusNode: edit.focusNode,
+                minLines: 1,
+                maxLines: 3,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                onChanged: (_) => onChanged(),
+                style: AppTypography.body.copyWith(color: AppColors.onSurface),
+                decoration: InputDecoration(
+                  labelText: 'Text',
+                  labelStyle: AppTypography.caption,
+                  hintText: 'Edit selected text',
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  toggle('B', edit.bold, () {
+                    edit.bold = !edit.bold;
+                    onChanged();
+                  }),
+                  const SizedBox(width: 8),
+                  toggle('I', edit.italic, () {
+                    edit.italic = !edit.italic;
+                    onChanged();
+                  }),
+                  const SizedBox(width: 8),
+                  toggle('U', edit.underline, () {
+                    edit.underline = !edit.underline;
+                    onChanged();
+                  }),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Slider(
+                      min: 8,
+                      max: 36,
+                      value: edit.fontSize.clamp(8, 36),
+                      activeColor: AppColors.primary,
+                      onChanged: (value) {
+                        edit.fontSize = value;
+                        onChanged();
+                      },
+                    ),
+                  ),
+                  Text(
+                    edit.fontSize.toStringAsFixed(0),
+                    style: AppTypography.caption,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  for (final color in _colors) ...[
+                    GestureDetector(
+                      onTap: () {
+                        edit.color = color;
+                        onChanged();
+                      },
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: color,
+                          border: Border.all(
+                            color: edit.color == color
+                                ? AppColors.primary
+                                : AppColors.outlineVariant,
+                            width: edit.color == color ? 3 : 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  const Spacer(),
+                  FilledButton.icon(
+                    onPressed: onApply,
+                    icon: const Icon(Iconsax.tick_circle),
+                    label: const Text('Apply text'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.onPrimary,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _StrokePainter extends CustomPainter {

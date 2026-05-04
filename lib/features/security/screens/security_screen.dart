@@ -389,7 +389,7 @@ class _VaultRecentRow extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Center(
+                  Center(
                     child: Icon(
                       Iconsax.document_text,
                       size: 20,

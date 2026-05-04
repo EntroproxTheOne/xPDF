@@ -77,10 +77,9 @@ class HomeScreen extends StatelessWidget {
                           ).animate().fadeIn(duration: 400.ms),
                           const SizedBox(height: 12),
                           Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
                             child: Text(
-                              'Select a tool below to quickly process your documents with our advanced glass-engine.',
+                              'Select a tool for editing your document',
                               style: AppTypography.bodyLarge.copyWith(
                                 color: AppColors.onSurfaceVariant,
                               ),
@@ -97,62 +96,59 @@ class HomeScreen extends StatelessWidget {
                             childAspectRatio: cols == 2 ? 0.94 : 1.02,
                             children: [
                               _HomeBentoCard(
-                                icon: Iconsax.scan,
-                                iconBg:
-                                    AppColors.secondaryContainer.withValues(
-                                      alpha: 0.55,
-                                    ),
-                                iconColor: AppColors.secondary,
-                                title: 'Scan',
-                                subtitle:
-                                    'Digitize physical documents with high-fidelity OCR.',
-                                accentGradient: true,
-                                onTap:
-                                    () => context.push('/scan'),
-                              ).animate(delay: 50.ms).fadeIn().slideY(
-                                  begin: 0.06, end: 0),
+                                    icon: Iconsax.scan,
+                                    iconBg: AppColors.secondaryContainer
+                                        .withValues(alpha: 0.55),
+                                    iconColor: AppColors.secondary,
+                                    title: 'Scan',
+                                    subtitle:
+                                        'Digitize physical documents with high-fidelity OCR.',
+                                    accentGradient: true,
+                                    onTap: () => context.push('/scan'),
+                                  )
+                                  .animate(delay: 50.ms)
+                                  .fadeIn()
+                                  .slideY(begin: 0.06, end: 0),
                               _HomeBentoCard(
-                                icon: Iconsax.document_copy,
-                                iconBg:
-                                    AppColors.surfaceContainerHigh,
-                                iconColor: AppColors.tertiary,
-                                title: 'Merge',
-                                subtitle:
-                                    'Combine multiple PDFs into a single document.',
-                                onTap: () =>
-                                    context.push('/merge-pdfs'),
-                              ).animate(delay: 90.ms).fadeIn().slideY(
-                                  begin: 0.06, end: 0),
+                                    icon: Iconsax.document_copy,
+                                    iconBg: AppColors.surfaceContainerHigh,
+                                    iconColor: AppColors.tertiary,
+                                    title: 'Merge',
+                                    subtitle:
+                                        'Combine multiple PDFs into a single document.',
+                                    onTap: () => context.push('/merge-pdfs'),
+                                  )
+                                  .animate(delay: 90.ms)
+                                  .fadeIn()
+                                  .slideY(begin: 0.06, end: 0),
                               _HomeBentoCard(
-                                icon: Iconsax.note_2,
-                                iconBg:
-                                    AppColors.primaryContainer.withValues(
-                                      alpha: 0.22,
-                                    ),
-                                iconColor: AppColors.primary,
-                                title: 'Edit',
-                                subtitle:
-                                    'Modify text, add annotations, and sign documents securely.',
-                                onTap: () =>
-                                    pickPdfAndNavigateEditor(context),
-                              ).animate(delay: 130.ms).fadeIn().slideY(
-                                  begin: 0.06, end: 0),
+                                    icon: Iconsax.note_2,
+                                    iconBg: AppColors.primaryContainer
+                                        .withValues(alpha: 0.22),
+                                    iconColor: AppColors.primary,
+                                    title: 'Edit',
+                                    subtitle:
+                                        'Modify text, add annotations, and sign documents securely.',
+                                    onTap: () =>
+                                        pickPdfAndNavigateEditor(context),
+                                  )
+                                  .animate(delay: 130.ms)
+                                  .fadeIn()
+                                  .slideY(begin: 0.06, end: 0),
                             ],
                           ),
                           const SizedBox(height: 32),
                           ListenableBuilder(
                             listenable: PdfLibraryRepository.instance,
                             builder: (context, _) {
-                              final recent =
-                                  PdfLibraryRepository.instance.recent(
-                                limit: 1,
-                              );
+                              final recent = PdfLibraryRepository.instance
+                                  .recent(limit: 1);
                               if (recent.isEmpty) {
                                 return const SizedBox.shrink();
                               }
-                              return _RecentTeaser(item: recent.first)
-                                  .animate(delay: 220.ms)
-                                  .fadeIn();
+                              return _RecentTeaser(
+                                item: recent.first,
+                              ).animate(delay: 220.ms).fadeIn();
                             },
                           ),
                         ],
@@ -211,9 +207,7 @@ class _HomeBentoCard extends StatelessWidget {
                         begin: Alignment.bottomRight,
                         end: Alignment.topLeft,
                         colors: [
-                          AppColors.secondaryContainer.withValues(
-                            alpha: 0.08,
-                          ),
+                          AppColors.secondaryContainer.withValues(alpha: 0.08),
                           Colors.transparent,
                         ],
                       ),
@@ -295,8 +289,7 @@ class _RecentTeaser extends StatelessWidget {
               color: AppColors.surfaceContainer,
               border: Border.all(color: AppColors.outlineVariant),
             ),
-            child:
-                Icon(Iconsax.clock, color: AppColors.textSecondary),
+            child: Icon(Iconsax.clock, color: AppColors.textSecondary),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -369,9 +362,7 @@ class _BackgroundGlow extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      AppColors.surfaceContainerHighest.withValues(
-                        alpha: 0.65,
-                      ),
+                      AppColors.surfaceContainerHighest.withValues(alpha: 0.65),
                       Colors.transparent,
                     ],
                   ),

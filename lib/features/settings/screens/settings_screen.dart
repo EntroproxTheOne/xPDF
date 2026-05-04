@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 
+import '../../../core/settings/app_settings_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/glass_morphism.dart';
@@ -19,19 +20,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const EdgeInsets _pagePad = EdgeInsets.fromLTRB(24, 8, 24, 112);
   static const double _railBreakpoint = 900;
 
-  final _nameCtrl = TextEditingController(text: 'Jane Doe');
-  final _emailCtrl = TextEditingController(text: 'jane.doe@example.com');
+
 
   /// 0 = Light, 1 = Dark, 2 = System (mock “Theme” row).
-  int _appearanceTheme = 0;
-  bool _emailSummaries = true;
-  bool _processingAlerts = false;
+  final AppSettingsController _settings = AppSettingsController.instance;
   int _sideRailIndex = 0;
+
+  int get _appearanceTheme => _settings.selectedThemeIndex;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
     super.dispose();
   }
 
@@ -68,8 +66,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           ..._pageHeader(context),
                           const SizedBox(height: 20),
-                          _accountSection(context),
-                          const SizedBox(height: 28),
                           _preferencesSection(context),
                           const SizedBox(height: 28),
                           _aboutSection(context),
@@ -92,15 +88,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child:
                               switch (_sideRailIndex) {
                                 0 =>
-                                  ListView(
-                                    padding: _pagePad,
-                                    children: [
-                                      ..._pageHeader(context),
-                                      const SizedBox(height: 24),
-                                      _accountSection(context),
-                                    ],
-                                  ),
-                                1 =>
                                   ListView(
                                     padding: _pagePad,
                                     children: [
@@ -144,93 +131,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       const SizedBox(height: 8),
       Text(
-        'Manage your account settings and preferences.',
+        'Manage your app preferences.',
         style: AppTypography.body,
       ),
     ];
   }
 
-  Widget _accountSection(BuildContext context) {
-    return _GlassSettingsSection(
-      sectionIcon: Iconsax.user,
-      sectionIconTint: AppColors.primary,
-      title: 'Account',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _avatarBlock(),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _LuminaLabeledField(
-                      label: 'Full Name',
-                      controller: _nameCtrl,
-                    ),
-                    const SizedBox(height: 12),
-                    _LuminaLabeledField(
-                      label: 'Email Address',
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _GhostPillButton(
-                label: 'Cancel',
-                onPressed: () {
-                  XpHaptics.surfaceTap();
-                  _toast('Cancelled');
-                },
-              ),
-              const SizedBox(width: 12),
-              _PrimaryPillButton(
-                label: 'Save Changes',
-                onPressed: () {
-                  XpHaptics.surfaceTap();
-                  _toast('Changes saved locally');
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _avatarBlock() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(40),
-        onTap: () => _toast('Profile photo picker coming soon'),
-        child: Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.surfaceContainerHigh,
-            border: Border.all(color: AppColors.surfaceContainer, width: 2),
-          ),
-          child: const Icon(
-            Iconsax.user,
-            size: 36,
-            color: AppColors.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _preferencesSection(BuildContext context) {
     return Column(
@@ -243,24 +149,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Notifications', style: AppTypography.bodyLarge),
-              const SizedBox(height: 12),
-              _NotificationToggleRow(
-                title: 'Email Summaries',
-                subtitle: 'Receive weekly processing reports',
-                value: _emailSummaries,
-                onChanged:
-                    (v) => setState(() => _emailSummaries = v),
-              ),
-              const SizedBox(height: 10),
-              _NotificationToggleRow(
-                title: 'Processing Alerts',
-                subtitle: 'Notify when large files complete',
-                value: _processingAlerts,
-                onChanged:
-                    (v) => setState(() => _processingAlerts = v),
-              ),
-              const SizedBox(height: 24),
               Text('Theme', style: AppTypography.bodyLarge),
               const SizedBox(height: 12),
               LayoutBuilder(
@@ -273,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           label: 'Light',
                           selected: _appearanceTheme == 0,
                           onTap:
-                              () => setState(() => _appearanceTheme = 0),
+                              () => _settings.setThemeMode(ThemeMode.light),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -283,7 +171,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           label: 'Dark',
                           selected: _appearanceTheme == 1,
                           onTap:
-                              () => setState(() => _appearanceTheme = 1),
+                              () => _settings.setThemeMode(ThemeMode.dark),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -293,7 +181,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           label: 'System',
                           selected: _appearanceTheme == 2,
                           onTap:
-                              () => setState(() => _appearanceTheme = 2),
+                              () => _settings.setThemeMode(ThemeMode.system),
                         ),
                       ),
                     ],
@@ -351,20 +239,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: 'Privacy Policy',
             onTap:
                 () => _toast('Privacy policy placeholder'),
-          ),
-          Divider(color: AppColors.errorContainer.withValues(alpha: 0.9)),
-          const SizedBox(height: 12),
-          TextButton.icon(
-            onPressed:
-                () {
-                  XpHaptics.surfaceTap();
-                  _toast('Staying signed in locally');
-                },
-            icon: Icon(Iconsax.logout_1, size: 20, color: AppColors.error),
-            label: Text(
-              'Sign Out',
-              style: AppTypography.label.copyWith(color: AppColors.error),
-            ),
           ),
         ],
       ),
@@ -437,9 +311,8 @@ class _SideRail extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          chip('Account', Iconsax.user, 0),
-          chip('Preferences', Iconsax.setting_5, 1),
-          chip('About', Iconsax.info_circle, 2),
+          chip('Preferences', Iconsax.setting_5, 0),
+          chip('About', Iconsax.info_circle, 1),
         ],
       ),
     );
@@ -479,105 +352,6 @@ class _GlassSettingsSection extends StatelessWidget {
           const SizedBox(height: 18),
           child,
         ],
-      ),
-    );
-  }
-}
-
-class _LuminaLabeledField extends StatelessWidget {
-  const _LuminaLabeledField({
-    required this.label,
-    required this.controller,
-    this.keyboardType,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final TextInputType? keyboardType;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabledBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide.none,
-    );
-    final focusedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: AppColors.primary, width: 2),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTypography.labelCaps.copyWith(
-            fontSize: 11,
-            color: AppColors.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          style: AppTypography.body,
-          decoration: InputDecoration(
-            isDense: true,
-            filled: true,
-            fillColor: AppColors.inputFill,
-            border: enabledBorder,
-            enabledBorder: enabledBorder,
-            focusedBorder: focusedBorder,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          ),
-          onTapOutside:
-              (_) => FocusManager.instance.primaryFocus?.unfocus(),
-        ),
-      ],
-    );
-  }
-}
-
-class _NotificationToggleRow extends StatelessWidget {
-  const _NotificationToggleRow({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: AppTypography.label),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: AppTypography.caption),
-                ],
-              ),
-            ),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-              activeThumbColor: AppColors.onPrimary,
-              activeTrackColor: AppColors.primary,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -686,7 +460,7 @@ class _AboutDividerRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border:
               Border(
                 bottom:
@@ -740,74 +514,3 @@ class _AboutTrailingRow extends StatelessWidget {
     );
   }
 }
-
-class _GhostPillButton extends StatelessWidget {
-  const _GhostPillButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: Material(
-        color: AppColors.glassChromeFill,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(999),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: AppColors.glassBorder),
-            ),
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Text(
-                label,
-                style: AppTypography.label.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PrimaryPillButton extends StatelessWidget {
-  const _PrimaryPillButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onPressed,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            gradient: AppColors.orangeGradient,
-            boxShadow: AppColors.orangeGlowShadow,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-            child: Text(
-              label,
-              style: AppTypography.buttonOnAccent.copyWith(fontSize: 14),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-

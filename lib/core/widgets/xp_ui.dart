@@ -20,14 +20,14 @@ class XpAmbientBackground extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          const DecoratedBox(
+          DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFFF8F9FF),
-                  Color(0xFFEFF4FF),
+                  AppColors.backgroundPrimary,
+                  AppColors.backgroundSecondary,
                 ],
               ),
             ),
@@ -80,6 +80,7 @@ class XpMobileTopBar extends StatelessWidget {
   });
 
   final VoidCallback onMenu;
+
   /// Optional screen title centered (mock keeps **xPDF** wordmark left; subtitle lives in-page).
   final String centerTitle;
 
@@ -115,8 +116,8 @@ class XpMobileTopBar extends StatelessWidget {
                           onMenu();
                         },
                         borderRadius: BorderRadius.circular(10),
-                        child: const Padding(
-                          padding: EdgeInsets.all(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
                           child: Icon(
                             Icons.menu_rounded,
                             color: AppColors.onSurfaceVariant,
@@ -125,7 +126,7 @@ class XpMobileTopBar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(
+                    Icon(
                       Iconsax.document_text,
                       color: AppColors.primary,
                       size: 24,
@@ -185,11 +186,7 @@ class XpMobileTopBar extends StatelessWidget {
 }
 
 class XpSectionCaps extends StatelessWidget {
-  const XpSectionCaps({
-    super.key,
-    required this.icon,
-    required this.label,
-  });
+  const XpSectionCaps({super.key, required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -247,9 +244,7 @@ Future<void> showXpMissionMenu(BuildContext context) async {
         ),
         child: GlassCard(
           borderRadius: 16,
-          padding: EdgeInsets.only(
-            bottom: bottom > 0 ? 8 : 0,
-          ),
+          padding: EdgeInsets.only(bottom: bottom > 0 ? 8 : 0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -269,10 +264,7 @@ Future<void> showXpMissionMenu(BuildContext context) async {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: Text(
-                  'Go to…',
-                  style: AppTypography.label,
-                ),
+                child: Text('Go to…', style: AppTypography.label),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),

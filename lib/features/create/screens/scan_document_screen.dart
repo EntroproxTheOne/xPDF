@@ -608,7 +608,7 @@ class _CornerMarker extends StatelessWidget {
       child: Container(
         width: 24,
         height: 24,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
             top: BorderSide(color: AppColors.orangeAccent, width: 3),
             left: BorderSide(color: AppColors.orangeAccent, width: 3),

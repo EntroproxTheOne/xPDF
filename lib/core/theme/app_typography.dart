@@ -17,7 +17,7 @@ class AppTypography {
       style.copyWith(color: AppColors.onSurface);
 
   // ─── Display / headline (mobile-tuned from 48/32 mock) ─────────────────────
-  static TextStyle display = _base(
+  static TextStyle get display => _base(
     GoogleFonts.inter(
       fontSize: 34,
       fontWeight: FontWeight.w600,
@@ -26,7 +26,7 @@ class AppTypography {
     ),
   );
 
-  static TextStyle headline = _base(
+  static TextStyle get headline => _base(
     GoogleFonts.inter(
       fontSize: 24,
       fontWeight: FontWeight.w600,
@@ -35,7 +35,7 @@ class AppTypography {
     ),
   );
 
-  static TextStyle title = _base(
+  static TextStyle get title => _base(
     GoogleFonts.inter(
       fontSize: 20,
       fontWeight: FontWeight.w500,
@@ -43,7 +43,7 @@ class AppTypography {
     ),
   );
 
-  static TextStyle subtitle = GoogleFonts.inter(
+  static TextStyle get subtitle => GoogleFonts.inter(
     fontSize: 16,
     fontWeight: FontWeight.w500,
     color: AppColors.onSurfaceVariant,
@@ -51,7 +51,7 @@ class AppTypography {
   );
 
   // ─── Body ─────────────────────────────────────────────────────────────────
-  static TextStyle body = _base(
+  static TextStyle get body => _base(
     GoogleFonts.inter(
       fontSize: 16,
       fontWeight: FontWeight.w400,
@@ -59,7 +59,7 @@ class AppTypography {
     ),
   );
 
-  static TextStyle bodyLarge = _base(
+  static TextStyle get bodyLarge => _base(
     GoogleFonts.inter(
       fontSize: 18,
       fontWeight: FontWeight.w400,
@@ -67,7 +67,7 @@ class AppTypography {
     ),
   );
 
-  static TextStyle bodySmall = GoogleFonts.inter(
+  static TextStyle get bodySmall => GoogleFonts.inter(
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: AppColors.onSurfaceVariant,
@@ -75,7 +75,7 @@ class AppTypography {
   );
 
   // ─── Label ─────────────────────────────────────────────────────────────────
-  static TextStyle label = _base(
+  static TextStyle get label => _base(
     GoogleFonts.inter(
       fontSize: 14,
       fontWeight: FontWeight.w500,
@@ -84,7 +84,7 @@ class AppTypography {
     ),
   );
 
-  static TextStyle labelSmall = _base(
+  static TextStyle get labelSmall => _base(
     GoogleFonts.inter(
       fontSize: 12,
       fontWeight: FontWeight.w600,
@@ -93,7 +93,7 @@ class AppTypography {
     ),
   );
 
-  static TextStyle labelCaps = GoogleFonts.inter(
+  static TextStyle get labelCaps => GoogleFonts.inter(
     fontSize: 12,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.06 * 12,
@@ -101,7 +101,7 @@ class AppTypography {
     color: AppColors.onSurfaceVariant,
   );
 
-  static TextStyle navLabel = GoogleFonts.inter(
+  static TextStyle get navLabel => GoogleFonts.inter(
     fontSize: 10,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.08 * 10,
@@ -109,14 +109,14 @@ class AppTypography {
     color: AppColors.onSurfaceVariant,
   );
 
-  static TextStyle caption = GoogleFonts.inter(
+  static TextStyle get caption => GoogleFonts.inter(
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.textMuted,
     height: 1.4,
   );
 
-  static TextStyle brandWordmark = GoogleFonts.inter(
+  static TextStyle get brandWordmark => GoogleFonts.inter(
     fontSize: 26,
     fontWeight: FontWeight.w700,
     fontStyle: FontStyle.normal,
@@ -125,7 +125,7 @@ class AppTypography {
     color: AppColors.primary,
   );
 
-  static TextStyle button = GoogleFonts.inter(
+  static TextStyle get button => GoogleFonts.inter(
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: AppColors.onPrimaryButton,
@@ -133,7 +133,7 @@ class AppTypography {
     height: 20 / 16,
   );
 
-  static TextStyle buttonOnAccent = GoogleFonts.inter(
+  static TextStyle get buttonOnAccent => GoogleFonts.inter(
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: AppColors.onPrimary,
@@ -141,7 +141,7 @@ class AppTypography {
     height: 20 / 16,
   );
 
-  static TextStyle buttonSmall = GoogleFonts.inter(
+  static TextStyle get buttonSmall => GoogleFonts.inter(
     fontSize: 14,
     fontWeight: FontWeight.w600,
     color: AppColors.onPrimary,

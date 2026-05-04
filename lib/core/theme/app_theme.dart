@@ -160,7 +160,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderSide: BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -261,6 +261,11 @@ class AppTheme {
     );
   }
 
-  /// Back-compat; prefer [lightTheme].
-  static ThemeData get darkTheme => lightTheme;
+  static ThemeData get darkTheme {
+    final previous = AppColors.isDark;
+    AppColors.setDarkMode(true);
+    final theme = lightTheme.copyWith(brightness: Brightness.dark);
+    AppColors.setDarkMode(previous);
+    return theme;
+  }
 }
