@@ -1,0 +1,90 @@
+name: allinonepdf
+description: "xPDF — Create, edit, convert & secure PDFs"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Icons
+  cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.17
+  iconsax_flutter: ^1.0.0+1
+
+  # State Management
+  flutter_bloc: ^9.1.0
+  equatable: ^2.0.7
+
+  # Navigation
+  go_router: ^15.1.2
+
+  # PDF Core
+  pdf: ^3.12.0
+  pdfrx: ^1.0.109
+  syncfusion_flutter_pdf: ^29.1.38
+  syncfusion_flutter_pdfviewer: ^29.1.38
+
+  # Document Scanning
+  cunning_document_scanner: ^1.2.3
+
+  # Image Handling
+  image_picker: ^1.1.2
+  flutter_image_compress: any
+  image: ^4.5.3
+
+  # File Management
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  file_picker: ^8.3.7
+  share_plus: ^10.1.4
+
+  # Printing
+  printing: ^5.14.2
+
+  # Permissions
+  permission_handler: ^11.4.0
+
+  # UI / Animations
+  flutter_animate: ^4.5.2
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  lottie: ^3.3.1
+
+  # Storage
+  hive_ce: ^2.3.4
+  hive_ce_flutter: ^2.3.4
+  uuid: ^4.5.1
+
+  # Utilities
+  intl: ^0.20.2
+
+  # OCR (on-device ML Kit)
+  google_mlkit_text_recognition: ^0.15.0
+  receive_sharing_intent: ^1.8.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.15
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/images/app_logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#0B1C30"
+  adaptive_icon_foreground: "assets/images/app_logo.png"
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icons/
+    - assets/images/
+    - assets/animations/
