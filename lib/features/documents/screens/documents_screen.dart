@@ -65,38 +65,35 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     var list = <PdfLibraryItem>[...raw];
     final query = _search.text.trim().toLowerCase();
     if (query.isNotEmpty) {
-      list =
-          list
-              .where(
-                (e) =>
-                    e.title.toLowerCase().contains(query) ||
-                    e.path.toLowerCase().contains(query),
-              )
-              .toList(growable: false);
+      list = list
+          .where(
+            (e) =>
+                e.title.toLowerCase().contains(query) ||
+                e.path.toLowerCase().contains(query),
+          )
+          .toList(growable: false);
     }
 
     switch (_quickFilter) {
       case _DocQuickFilter.all:
         break;
       case _DocQuickFilter.scanned:
-        list =
-            list
-                .where((e) {
-                  final t = e.title.toLowerCase();
-                  final p = e.path.toLowerCase();
-                  return t.contains('scan') || p.contains('scan');
-                })
-                .toList(growable: false);
+        list = list
+            .where((e) {
+              final t = e.title.toLowerCase();
+              final p = e.path.toLowerCase();
+              return t.contains('scan') || p.contains('scan');
+            })
+            .toList(growable: false);
       case _DocQuickFilter.exports:
-        list =
-            list
-                .where((e) {
-                  final t = e.title.toLowerCase();
-                  return t.contains('export') ||
-                      t.contains('edited') ||
-                      t.endsWith('_export.pdf');
-                })
-                .toList(growable: false);
+        list = list
+            .where((e) {
+              final t = e.title.toLowerCase();
+              return t.contains('export') ||
+                  t.contains('edited') ||
+                  t.endsWith('_export.pdf');
+            })
+            .toList(growable: false);
     }
 
     switch (_sort) {
@@ -155,33 +152,139 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'History',
-                                      style:
-                                          AppTypography.display.copyWith(
-                                        fontSize: 30,
-                                        height: 1.2,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Review and manage your recently processed documents.',
-                                      style: AppTypography.body.copyWith(
-                                        color: AppColors.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
+                              Text(
+                                'History',
+                                style: AppTypography.display.copyWith(
+                                  fontSize: 30,
+                                  height: 1.2,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Review and manage your recently processed documents.',
+                                style: AppTypography.body.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Search',
+                                    onPressed: () {
+                                      XpHaptics.surfaceTap();
+                                      setState(() {
+                                        _showSearch = !_showSearch;
+                                        if (_showSearch) {
+                                          _searchFocus.requestFocus();
+                                        }
+                                      });
+                                    },
+                                    icon: Icon(
+                                      Iconsax.search_normal,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Open PDF',
+                                    onPressed: () {
+                                      XpHaptics.surfaceTap();
+                                      pickPdfAndNavigateViewer(context);
+                                    },
+                                    icon: Icon(
+                                      Iconsax.add_circle,
+                                      color: AppColors.primary,
+                                      size: 26,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  PopupMenuButton<String>(
+                                    tooltip: 'Sort',
+                                    onSelected: (v) {
+                                      XpHaptics.navTap();
+                                      setState(() {
+                                        _sort = switch (v) {
+                                          'r' => _DocSort.openedDesc,
+                                          'a' => _DocSort.nameAsc,
+                                          _ => _DocSort.nameDesc,
+                                        };
+                                      });
+                                    },
+                                    itemBuilder: (_) => [
+                                      const PopupMenuItem(
+                                        value: 'r',
+                                        child: Text('Recently opened'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'a',
+                                        child: Text('Name A-Z'),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: 'z',
+                                        child: Text('Name Z-A'),
+                                      ),
+                                    ],
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Iconsax.sort,
+                                          size: 20,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _sortLabel(_sort),
+                                          style: AppTypography.caption.copyWith(
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  PopupMenuButton<_DocQuickFilter>(
+                                    tooltip: 'Filter',
+                                    onSelected: (v) {
+                                      XpHaptics.surfaceTap();
+                                      setState(() => _quickFilter = v);
+                                    },
+                                    itemBuilder: (_) => [
+                                      PopupMenuItem(
+                                        value: _DocQuickFilter.all,
+                                        child: Text(
+                                          'All',
+                                          style: AppTypography.body,
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: _DocQuickFilter.scanned,
+                                        child: Text(
+                                          'Scanned',
+                                          style: AppTypography.body,
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: _DocQuickFilter.exports,
+                                        child: Text(
+                                          'Exports',
+                                          style: AppTypography.body,
+                                        ),
+                                      ),
+                                    ],
+                                    child: Icon(
+                                      Iconsax.filter,
+                                      size: 20,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              /*
                               IconButton(
                                 tooltip: 'Search',
                                 onPressed: () {
@@ -304,17 +407,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                                   ),
                                 ),
                               ),
+                              */
                             ],
                           ),
                         ),
                         if (_showSearch) ...[
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              24,
-                              16,
-                              24,
-                              8,
-                            ),
+                            padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
                             child: GlassContainer(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 14,
@@ -335,13 +434,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                                       focusNode: _searchFocus,
                                       style: AppTypography.body,
                                       onChanged: (_) => setState(() {}),
-                                      textInputAction:
-                                          TextInputAction.search,
+                                      textInputAction: TextInputAction.search,
                                       decoration: InputDecoration(
-                                        hintText:
-                                            'Search by filename…',
-                                        hintStyle:
-                                            AppTypography.bodySmall,
+                                        hintText: 'Search by filename…',
+                                        hintStyle: AppTypography.bodySmall,
                                         border: InputBorder.none,
                                         enabledBorder: InputBorder.none,
                                         focusedBorder: InputBorder.none,
@@ -349,27 +445,22 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                                             const EdgeInsets.symmetric(
                                               vertical: 10,
                                             ),
-                                        suffixIcon:
-                                            _search.text.isEmpty
-                                                ? null
-                                                : IconButton(
-                                                    tooltip: 'Clear',
-                                                    icon: Icon(
-                                                      Icons
-                                                          .close_rounded,
-                                                      size: 20,
-                                                      color: AppColors
-                                                          .textMuted,
-                                                    ),
-                                                    onPressed: () {
-                                                      XpHaptics
-                                                          .surfaceTap();
-                                                      _search.clear();
-                                                      setState(() {});
-                                                      _searchFocus
-                                                          .requestFocus();
-                                                    },
-                                                  ),
+                                        suffixIcon: _search.text.isEmpty
+                                            ? null
+                                            : IconButton(
+                                                tooltip: 'Clear',
+                                                icon: Icon(
+                                                  Icons.close_rounded,
+                                                  size: 20,
+                                                  color: AppColors.textMuted,
+                                                ),
+                                                onPressed: () {
+                                                  XpHaptics.surfaceTap();
+                                                  _search.clear();
+                                                  setState(() {});
+                                                  _searchFocus.requestFocus();
+                                                },
+                                              ),
                                       ),
                                     ),
                                   ),
@@ -388,9 +479,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: _buildList(bottom),
-                        ),
+                        Expanded(child: _buildList(bottom)),
                       ],
                     );
                   },
@@ -452,11 +541,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       padding: EdgeInsets.fromLTRB(24, 0, 24, bottomPad),
       physics: const BouncingScrollPhysics(),
       itemCount: filtered.length,
-      itemBuilder: (context, index) =>
-          _HistoryGlassRow(item: filtered[index])
-              .animate(delay: ((index.clamp(0, 14)) * 50).ms)
-              .fadeIn(duration: 280.ms)
-              .slideX(begin: 0.03, end: 0),
+      itemBuilder: (context, index) => _HistoryGlassRow(item: filtered[index])
+          .animate(delay: ((index.clamp(0, 14)) * 50).ms)
+          .fadeIn(duration: 280.ms)
+          .slideX(begin: 0.03, end: 0),
     );
   }
 }
@@ -551,22 +639,12 @@ class _HistoryGlassRow extends StatelessWidget {
               tooltip: 'Export',
               onPressed: () {
                 XpHaptics.surfaceTap();
-                context.push(
-                  '/export?path=${Uri.encodeComponent(item.path)}',
-                );
+                context.push('/export?path=${Uri.encodeComponent(item.path)}');
               },
-              icon: Icon(
-                Iconsax.export_1,
-                size: 20,
-                color: AppColors.tertiary,
-              ),
+              icon: Icon(Iconsax.export_1, size: 20, color: AppColors.tertiary),
             ),
             PopupMenuButton<String>(
-              icon: Icon(
-                Iconsax.more,
-                color: AppColors.tertiary,
-                size: 20,
-              ),
+              icon: Icon(Iconsax.more, color: AppColors.tertiary, size: 20),
               color: AppColors.backgroundSecondary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -599,9 +677,7 @@ class _HistoryGlassRow extends StatelessWidget {
                     );
                   case 'delete':
                     XpHaptics.emphasize();
-                    await PdfLibraryRepository.instance.removeRecent(
-                      item.path,
-                    );
+                    await PdfLibraryRepository.instance.removeRecent(item.path);
                 }
               },
               itemBuilder: (_) => [

@@ -23,10 +23,7 @@ final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
   routes: [
-    GoRoute(
-      path: '/create',
-      redirect: (context, state) => '/tools',
-    ),
+    GoRoute(path: '/create', redirect: (context, state) => '/tools'),
     ShellRoute(
       navigatorKey: _shellNavigatorKey,
       builder: (context, state, child) => AppShell(child: child),
@@ -65,10 +62,7 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) =>
           _slidePage(const SecurityScreen(), state),
     ),
-    GoRoute(
-      path: '/bulk-import',
-      redirect: (context, state) => '/merge-pdfs',
-    ),
+    GoRoute(path: '/bulk-import', redirect: (context, state) => '/merge-pdfs'),
     GoRoute(
       path: '/merge-pdfs',
       parentNavigatorKey: _rootNavigatorKey,
@@ -110,7 +104,15 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       pageBuilder: (context, state) {
         final filePath = state.uri.queryParameters['path'] ?? '';
-        return _slideUpPage(PdfLockerScreen(filePath: filePath), state);
+        final mode = switch (state.uri.queryParameters['mode']) {
+          'unlock' => PdfSecurityMode.unlock,
+          'status' => PdfSecurityMode.status,
+          _ => PdfSecurityMode.lock,
+        };
+        return _slideUpPage(
+          PdfLockerScreen(filePath: filePath, initialMode: mode),
+          state,
+        );
       },
     ),
     GoRoute(

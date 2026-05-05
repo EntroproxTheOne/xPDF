@@ -41,7 +41,10 @@ Future<void> pickPdfAndNavigateEditor(BuildContext context) async {
 
 typedef PdfSandboxPathCallback = Future<void> Function(String sandboxPath);
 
-Future<void> _pickPdfThenPath(BuildContext context, PdfSandboxPathCallback next) async {
+Future<void> _pickPdfThenPath(
+  BuildContext context,
+  PdfSandboxPathCallback next,
+) async {
   final result = await FilePicker.platform.pickFiles(
     type: FileType.custom,
     allowedExtensions: const <String>['pdf'],
@@ -80,13 +83,27 @@ Future<void> pickPdfThenShareViaSheet(BuildContext context) async {
   final sandboxPath = await PdfSandboxService.importFileToSandbox(platformPath);
   await PdfLibraryRepository.instance.recordOpened(sandboxPath);
   if (!context.mounted) return;
-  await Share.shareXFiles(
-    <XFile>[XFile(sandboxPath, mimeType: 'application/pdf')],
-    subject: p.basename(sandboxPath),
-  );
+  await Share.shareXFiles(<XFile>[
+    XFile(sandboxPath, mimeType: 'application/pdf'),
+  ], subject: p.basename(sandboxPath));
 }
 
 Future<void> pickPdfAndNavigateLock(BuildContext context) async {
+  await pickPdfAndNavigateSecurity(context, mode: 'lock');
+}
+
+Future<void> pickPdfAndNavigateUnlock(BuildContext context) async {
+  await pickPdfAndNavigateSecurity(context, mode: 'unlock');
+}
+
+Future<void> pickPdfAndNavigateLockStatus(BuildContext context) async {
+  await pickPdfAndNavigateSecurity(context, mode: 'status');
+}
+
+Future<void> pickPdfAndNavigateSecurity(
+  BuildContext context, {
+  required String mode,
+}) async {
   final result = await FilePicker.platform.pickFiles(
     type: FileType.custom,
     allowedExtensions: const <String>['pdf'],
@@ -97,7 +114,9 @@ Future<void> pickPdfAndNavigateLock(BuildContext context) async {
   final sandboxPath = await PdfSandboxService.importFileToSandbox(platformPath);
   await PdfLibraryRepository.instance.recordOpened(sandboxPath);
   if (!context.mounted) return;
-  await context.push('/lock?path=${Uri.encodeComponent(sandboxPath)}');
+  await context.push(
+    '/lock?path=${Uri.encodeComponent(sandboxPath)}&mode=$mode',
+  );
 }
 
 Future<String?> pickSinglePdfToSandbox() async {

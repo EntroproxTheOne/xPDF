@@ -1,179 +1,323 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:path/path.dart' as p;
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/glass_app_bar.dart';
 import '../../../core/widgets/gradient_button.dart';
+import '../../../services/pdf_library_repository.dart';
+import '../../../services/security_service.dart';
+
+enum PdfSecurityMode { lock, unlock, status }
 
 class PdfLockerScreen extends StatefulWidget {
   final String filePath;
-  const PdfLockerScreen({super.key, required this.filePath});
+  final PdfSecurityMode initialMode;
+
+  const PdfLockerScreen({
+    super.key,
+    required this.filePath,
+    this.initialMode = PdfSecurityMode.lock,
+  });
 
   @override
   State<PdfLockerScreen> createState() => _PdfLockerScreenState();
 }
 
 class _PdfLockerScreenState extends State<PdfLockerScreen> {
-  final _passwordCtrl = TextEditingController();
+  final _pinCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  final _service = SecurityService();
+
+  late PdfSecurityMode _mode;
   bool _obscure = true;
-  bool _isLocking = false;
+  bool _busy = false;
+  bool? _locked;
+  String? _resultPath;
+  String? _message;
 
-  double get _strength {
-    final p = _passwordCtrl.text;
-    if (p.isEmpty) return 0;
-    double s = 0;
-    if (p.length >= 6) s += 0.25;
-    if (p.length >= 10) s += 0.15;
-    if (RegExp(r'[A-Z]').hasMatch(p)) s += 0.2;
-    if (RegExp(r'[0-9]').hasMatch(p)) s += 0.2;
-    if (RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(p)) s += 0.2;
-    return s.clamp(0, 1);
-  }
-
-  Color get _strengthColor {
-    if (_strength < 0.3) return AppColors.errorStrong;
-    if (_strength < 0.6) return AppColors.warning;
-    return AppColors.success;
-  }
-
-  String get _strengthLabel {
-    if (_strength < 0.3) return 'Weak';
-    if (_strength < 0.6) return 'Medium';
-    return 'Strong';
+  @override
+  void initState() {
+    super.initState();
+    _mode = widget.initialMode;
+    if (_mode == PdfSecurityMode.status) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkStatus());
+    }
   }
 
   @override
   void dispose() {
-    _passwordCtrl.dispose();
+    _pinCtrl.dispose();
     _confirmCtrl.dispose();
     super.dispose();
   }
 
+  String get _title => switch (_mode) {
+    PdfSecurityMode.lock => 'Lock PDF',
+    PdfSecurityMode.unlock => 'Unlock PDF',
+    PdfSecurityMode.status => 'PDF Lock Status',
+  };
+
+  String get _subtitle => p.basename(widget.filePath);
+
+  bool get _canSubmit {
+    final pin = _pinCtrl.text.trim();
+    return switch (_mode) {
+      PdfSecurityMode.lock => pin.isNotEmpty && pin == _confirmCtrl.text.trim(),
+      PdfSecurityMode.unlock => pin.isNotEmpty,
+      PdfSecurityMode.status => true,
+    };
+  }
+
+  void _setMode(PdfSecurityMode mode) {
+    setState(() {
+      _mode = mode;
+      _message = null;
+      _resultPath = null;
+      _locked = null;
+      _pinCtrl.clear();
+      _confirmCtrl.clear();
+    });
+    if (mode == PdfSecurityMode.status) {
+      _checkStatus();
+    }
+  }
+
+  Future<void> _checkStatus() async {
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      final locked = await _service.isPdfLocked(widget.filePath);
+      if (!mounted) return;
+      setState(() {
+        _locked = locked;
+        _message = locked ? 'This PDF is locked.' : 'This PDF is not locked.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _message = 'Could not check PDF: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    if (!_canSubmit || _busy) return;
+    if (_mode == PdfSecurityMode.status) {
+      await _checkStatus();
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _message = null;
+      _resultPath = null;
+    });
+
+    try {
+      final pin = _pinCtrl.text.trim();
+      final out = switch (_mode) {
+        PdfSecurityMode.lock => await _service.lockPdf(widget.filePath, pin),
+        PdfSecurityMode.unlock => await _service.unlockPdf(
+          widget.filePath,
+          pin,
+        ),
+        PdfSecurityMode.status => widget.filePath,
+      };
+      await PdfLibraryRepository.instance.recordOpened(out);
+      if (!mounted) return;
+      setState(() {
+        _resultPath = out;
+        _locked = _mode == PdfSecurityMode.lock;
+        _message = _mode == PdfSecurityMode.lock
+            ? 'Locked PDF created.'
+            : 'Unlocked PDF created.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _message = _mode == PdfSecurityMode.unlock
+            ? 'Unlock failed. Check the PIN and try again.'
+            : 'Security action failed: $e';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _modeButton(PdfSecurityMode mode, IconData icon, String label) {
+    final selected = _mode == mode;
+    return Expanded(
+      child: OutlinedButton.icon(
+        onPressed: _busy ? null : () => _setMode(mode),
+        icon: Icon(icon, size: 18),
+        label: Text(label, overflow: TextOverflow.ellipsis),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: selected
+              ? AppColors.primary
+              : AppColors.textSecondary,
+          side: BorderSide(
+            color: selected ? AppColors.primary : AppColors.outlineVariant,
+          ),
+          backgroundColor: selected
+              ? AppColors.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
+        ),
+      ),
+    );
+  }
+
+  Widget _statusPanel() {
+    final locked = _locked;
+    final icon = locked == null
+        ? Iconsax.shield_search
+        : locked
+        ? Iconsax.lock
+        : Iconsax.unlock;
+    final color = locked == null
+        ? AppColors.textSecondary
+        : locked
+        ? AppColors.redTrim
+        : AppColors.success;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _message ?? 'Choose an action for this PDF.',
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final showPin = _mode != PdfSecurityMode.status;
+
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
-      appBar: const GlassAppBar(
-        title: 'Lock Document',
-        subtitle: 'Set a password to encrypt',
+      appBar: GlassAppBar(
+        title: _title,
+        subtitle: _subtitle,
         showBackButton: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
           children: [
-            // Lock icon
-            Center(
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.redTrim.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
+            Row(
+              children: [
+                _modeButton(PdfSecurityMode.lock, Iconsax.lock, 'Lock'),
+                const SizedBox(width: 8),
+                _modeButton(PdfSecurityMode.unlock, Iconsax.unlock, 'Unlock'),
+                const SizedBox(width: 8),
+                _modeButton(
+                  PdfSecurityMode.status,
+                  Iconsax.shield_search,
+                  'Check',
                 ),
-                child: Icon(Iconsax.lock, color: AppColors.redTrim, size: 36),
-              ),
+              ],
             ),
             const SizedBox(height: 28),
-            // Password field
-            Text('Password', style: AppTypography.label),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _passwordCtrl,
-              obscureText: _obscure,
-              onChanged: (_) => setState(() {}),
-              style: AppTypography.body,
-              decoration: InputDecoration(
-                hintText: 'Enter password',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscure ? Iconsax.eye_slash : Iconsax.eye,
-                    color: AppColors.textMuted,
-                  ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
+            Center(
+              child: Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _mode == PdfSecurityMode.unlock
+                      ? Iconsax.unlock
+                      : _mode == PdfSecurityMode.status
+                      ? Iconsax.shield_search
+                      : Iconsax.lock,
+                  color: AppColors.primary,
+                  size: 34,
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            // Strength indicator
-            if (_passwordCtrl.text.isNotEmpty) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: _strength,
-                        backgroundColor: AppColors.backgroundTertiary,
-                        color: _strengthColor,
-                        minHeight: 4,
-                      ),
+            const SizedBox(height: 24),
+            if (showPin) ...[
+              Text('PIN', style: AppTypography.label),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _pinCtrl,
+                obscureText: _obscure,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+                style: AppTypography.body,
+                decoration: InputDecoration(
+                  hintText: 'Enter PIN',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscure ? Iconsax.eye_slash : Iconsax.eye,
+                      color: AppColors.textMuted,
                     ),
+                    onPressed: () => setState(() => _obscure = !_obscure),
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    _strengthLabel,
-                    style: AppTypography.caption.copyWith(
-                      color: _strengthColor,
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 16),
+              if (_mode == PdfSecurityMode.lock) ...[
+                const SizedBox(height: 16),
+                Text('Confirm PIN', style: AppTypography.label),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _confirmCtrl,
+                  obscureText: _obscure,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                  style: AppTypography.body,
+                  decoration: const InputDecoration(hintText: 'Re-enter PIN'),
+                ),
+              ],
+              const SizedBox(height: 18),
             ],
-            // Confirm password
-            Text('Confirm Password', style: AppTypography.label),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _confirmCtrl,
-              obscureText: true,
-              style: AppTypography.body,
-              decoration: const InputDecoration(hintText: 'Re-enter password'),
-            ),
-            const SizedBox(height: 10),
-            // Encryption info
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.info.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.info.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(Iconsax.shield_tick, color: AppColors.info, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'AES-256 bit encryption will be applied',
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.info,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
+            _statusPanel(),
+            const SizedBox(height: 28),
             GradientButton(
-              label: 'Lock Document',
-              icon: Iconsax.lock,
-              isLoading: _isLocking,
-              onPressed: _passwordCtrl.text.isEmpty
-                  ? null
-                  : () {
-                      setState(() => _isLocking = true);
-                      final nav = Navigator.of(context);
-                      Future.delayed(const Duration(seconds: 2), () {
-                        if (mounted) nav.pop();
-                      });
-                    },
+              label: _mode == PdfSecurityMode.status
+                  ? 'Check Lock Status'
+                  : _mode == PdfSecurityMode.unlock
+                  ? 'Unlock PDF'
+                  : 'Lock PDF',
+              icon: _mode == PdfSecurityMode.unlock
+                  ? Iconsax.unlock
+                  : _mode == PdfSecurityMode.status
+                  ? Iconsax.shield_search
+                  : Iconsax.lock,
+              isLoading: _busy,
+              onPressed: _canSubmit ? _submit : null,
             ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+            if (_resultPath != null) ...[
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: () => context.push(
+                  '/viewer?path=${Uri.encodeComponent(_resultPath!)}',
+                ),
+                icon: const Icon(Iconsax.eye),
+                label: const Text('View PDF'),
+              ),
+            ],
           ],
         ),
       ),

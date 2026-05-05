@@ -157,23 +157,6 @@ class XpMobileTopBar extends StatelessWidget {
                       )
                     else
                       const Spacer(),
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.surfaceContainerHigh,
-                        border: Border.all(
-                          color: AppColors.outlineVariant,
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(
-                        Iconsax.user,
-                        size: 18,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
                   ],
                 ),
               ),

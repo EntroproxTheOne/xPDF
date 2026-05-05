@@ -35,12 +35,8 @@ class PdfMergeService {
             final sp = src.pages[i];
             final sz = sp.size;
             final rot = sp.rotation;
-            final insertAt = merged.pages.count;
-            // Insert page with explicit dart:ui Size
-            final PdfPage inserted = merged.pages.insert(
-              insertAt,
-              Size(sz.width, sz.height),
-            );
+            merged.pageSettings.size = Size(sz.width, sz.height);
+            final PdfPage inserted = merged.pages.add();
             inserted.rotation = rot;
             try {
               final template = sp.createTemplate();
@@ -60,10 +56,7 @@ class PdfMergeService {
 
       final dir = await PdfSandboxService.ensurePdfsDirectory();
       final outPath = PdfSandboxService.normalizeStoredPath(
-        p.join(
-          dir.path,
-          'merged_${DateTime.now().millisecondsSinceEpoch}.pdf',
-        ),
+        p.join(dir.path, 'merged_${DateTime.now().millisecondsSinceEpoch}.pdf'),
       );
       final outBytes = merged.saveSync();
       if (outBytes.isEmpty) {

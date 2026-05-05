@@ -15,6 +15,10 @@ class SecurityScreen extends StatelessWidget {
   const SecurityScreen({super.key});
 
   void _toast(BuildContext context, String msg) {
+    if (msg.contains('Change password')) {
+      pickPdfAndNavigateLockStatus(context);
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
@@ -48,8 +52,7 @@ class SecurityScreen extends StatelessWidget {
                       sliver: SliverToBoxAdapter(
                         child: Text(
                           'Secure',
-                          style:
-                              AppTypography.headline.copyWith(fontSize: 28),
+                          style: AppTypography.headline.copyWith(fontSize: 28),
                         ).animate().fadeIn(duration: 320.ms),
                       ),
                     ),
@@ -65,40 +68,38 @@ class SecurityScreen extends StatelessWidget {
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(24, 18, 24, 14),
                       sliver: SliverToBoxAdapter(
-                        child:
-                            ListenableBuilder(
-                                  listenable: PdfLibraryRepository.instance,
-                                  builder: (context, _) {
-                                    final n =
-                                        PdfLibraryRepository.instance.recent().length;
-                                    return Row(
-                                      children: [
-                                        _StatCard(
-                                          icon: Iconsax.lock,
-                                          value: '—',
-                                          label: 'Locked',
-                                          color: AppColors.redTrim,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        _StatCard(
-                                          icon: Iconsax.clock,
-                                          value: '$n',
-                                          label: 'Recent',
-                                          color: AppColors.orangeAccent,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        _StatCard(
-                                          icon: Iconsax.shield_tick,
-                                          value: 'AES',
-                                          label: '256-bit',
-                                          color: AppColors.tertiaryBright,
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                )
-                                .animate()
-                                .fadeIn(duration: 400.ms),
+                        child: ListenableBuilder(
+                          listenable: PdfLibraryRepository.instance,
+                          builder: (context, _) {
+                            final n = PdfLibraryRepository.instance
+                                .recent()
+                                .length;
+                            return Row(
+                              children: [
+                                _StatCard(
+                                  icon: Iconsax.lock,
+                                  value: '—',
+                                  label: 'Locked',
+                                  color: AppColors.redTrim,
+                                ),
+                                const SizedBox(width: 10),
+                                _StatCard(
+                                  icon: Iconsax.clock,
+                                  value: '$n',
+                                  label: 'Recent',
+                                  color: AppColors.orangeAccent,
+                                ),
+                                const SizedBox(width: 10),
+                                _StatCard(
+                                  icon: Iconsax.shield_tick,
+                                  value: 'AES',
+                                  label: '256-bit',
+                                  color: AppColors.tertiaryBright,
+                                ),
+                              ],
+                            );
+                          },
+                        ).animate().fadeIn(duration: 400.ms),
                       ),
                     ),
                     SliverPadding(
@@ -113,62 +114,61 @@ class SecurityScreen extends StatelessWidget {
                     SliverPadding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       sliver: SliverToBoxAdapter(
-                        child: _VaultActionLarge(
-                              icon: Iconsax.lock,
-                              title: 'Lock a document',
-                              body: 'AES-256 password protection.',
-                              accent: AppColors.redTrim,
-                              foot: 'CHOOSE PDF',
-                              onTap:
-                                  () => pickPdfAndNavigateLock(context),
-                            )
-                            .animate(delay: 60.ms)
-                            .fadeIn(duration: 400.ms)
-                            .slideY(begin: 0.05, end: 0),
+                        child:
+                            _VaultActionLarge(
+                                  icon: Iconsax.lock,
+                                  title: 'Lock a document',
+                                  body: 'AES-256 password protection.',
+                                  accent: AppColors.redTrim,
+                                  foot: 'CHOOSE PDF',
+                                  onTap: () => pickPdfAndNavigateLock(context),
+                                )
+                                .animate(delay: 60.ms)
+                                .fadeIn(duration: 400.ms)
+                                .slideY(begin: 0.05, end: 0),
                       ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 12)),
                     SliverPadding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       sliver: SliverToBoxAdapter(
-                        child: _VaultActionLarge(
-                              icon: Iconsax.unlock,
-                              title: 'Unlock document',
-                              body:
-                                  'Remove encryption when you have the password.',
-                              accent: AppColors.success,
-                              foot: 'COMING SOON',
-                              enabled: false,
-                              onTap:
-                                  () =>
-                                      _toast(context, 'Unlock flow coming soon.'),
-                            )
-                            .animate(delay: 120.ms)
-                            .fadeIn(duration: 400.ms)
-                            .slideY(begin: 0.05, end: 0),
+                        child:
+                            _VaultActionLarge(
+                                  icon: Iconsax.unlock,
+                                  title: 'Unlock document',
+                                  body:
+                                      'Remove encryption when you have the password.',
+                                  accent: AppColors.success,
+                                  foot: 'CHOOSE PDF',
+                                  onTap: () =>
+                                      pickPdfAndNavigateUnlock(context),
+                                )
+                                .animate(delay: 120.ms)
+                                .fadeIn(duration: 400.ms)
+                                .slideY(begin: 0.05, end: 0),
                       ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 12)),
                     SliverPadding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       sliver: SliverToBoxAdapter(
-                        child: _VaultActionLarge(
-                              icon: Iconsax.key,
-                              title: 'Change password',
-                              body:
-                                  'Rotate the password on an existing locked PDF.',
-                              accent: AppColors.info,
-                              foot: 'COMING SOON',
-                              enabled: false,
-                              onTap:
-                                  () => _toast(
+                        child:
+                            _VaultActionLarge(
+                                  icon: Iconsax.shield_search,
+                                  title: 'Check lock status',
+                                  body:
+                                      'See whether a PDF needs a PIN before opening.',
+                                  accent: AppColors.info,
+                                  foot: 'CHOOSE PDF',
+                                  enabled: true,
+                                  onTap: () => _toast(
                                     context,
                                     'Change password • coming soon.',
                                   ),
-                            )
-                            .animate(delay: 180.ms)
-                            .fadeIn(duration: 400.ms)
-                            .slideY(begin: 0.05, end: 0),
+                                )
+                                .animate(delay: 180.ms)
+                                .fadeIn(duration: 400.ms)
+                                .slideY(begin: 0.05, end: 0),
                       ),
                     ),
                     SliverPadding(
@@ -183,43 +183,37 @@ class SecurityScreen extends StatelessWidget {
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(24, 0, 24, 112),
                       sliver: SliverToBoxAdapter(
-                        child:
-                            ListenableBuilder(
-                                  listenable: PdfLibraryRepository.instance,
-                                  builder: (context, _) {
-                                    final items =
-                                        PdfLibraryRepository.instance.recent(
-                                          limit: 12,
-                                        );
-                                    if (items.isEmpty) {
-                                      return Padding(
-                                        padding:
-                                            const EdgeInsets.symmetric(
-                                              vertical: 24,
-                                            ),
-                                        child: Center(
-                                          child: Text(
-                                            'No PDFs yet. Scan, import, or open from Home.',
-                                            textAlign: TextAlign.center,
-                                            style: AppTypography.caption,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                    return Column(
-                                      children:
-                                          items.asMap().entries.map((e) {
-                                            final i = e.key;
-                                            final item = e.value;
-                                            return _VaultRecentRow(item: item)
-                                                .animate(
-                                                  delay: (240 + i * 40).ms,
-                                                )
-                                                .fadeIn(duration: 300.ms);
-                                          }).toList(),
-                                    );
-                                  },
+                        child: ListenableBuilder(
+                          listenable: PdfLibraryRepository.instance,
+                          builder: (context, _) {
+                            final items = PdfLibraryRepository.instance.recent(
+                              limit: 12,
+                            );
+                            if (items.isEmpty) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
                                 ),
+                                child: Center(
+                                  child: Text(
+                                    'No PDFs yet. Scan, import, or open from Home.',
+                                    textAlign: TextAlign.center,
+                                    style: AppTypography.caption,
+                                  ),
+                                ),
+                              );
+                            }
+                            return Column(
+                              children: items.asMap().entries.map((e) {
+                                final i = e.key;
+                                final item = e.value;
+                                return _VaultRecentRow(item: item)
+                                    .animate(delay: (240 + i * 40).ms)
+                                    .fadeIn(duration: 300.ms);
+                              }).toList(),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -258,7 +252,10 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               value,
-              style: AppTypography.headline.copyWith(fontSize: 22, color: color),
+              style: AppTypography.headline.copyWith(
+                fontSize: 22,
+                color: color,
+              ),
             ),
             const SizedBox(height: 2),
             Text(
@@ -332,10 +329,9 @@ class _VaultActionLarge extends StatelessWidget {
           ),
           Icon(
             Iconsax.arrow_right_3,
-            color:
-                enabled
-                    ? AppColors.textMuted.withValues(alpha: 0.7)
-                    : AppColors.textMuted.withValues(alpha: 0.35),
+            color: enabled
+                ? AppColors.textMuted.withValues(alpha: 0.7)
+                : AppColors.textMuted.withValues(alpha: 0.35),
             size: 20,
           ),
         ],
@@ -356,10 +352,8 @@ class _VaultRecentRow extends StatelessWidget {
       child: GlassCard(
         borderRadius: 10,
         blurSigma: 20,
-        onTap:
-            () => context.push(
-              '/viewer?path=${Uri.encodeComponent(item.path)}',
-            ),
+        onTap: () =>
+            context.push('/viewer?path=${Uri.encodeComponent(item.path)}'),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
